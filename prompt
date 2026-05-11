@@ -1,0 +1,27 @@
+create a docker based online examination software for IT. there should be four type of users 1.state admin 2.Question setters 3.school admin 4.invigilator 5. student.
+
+state admin should be able to create question setters. and in state admin login, there should be option to create examinations (exam name, class, date range etc). state admin should be able to set question patterns for each examination like total number of theory questions, number of practical questions, difficulty levels like number of easy questions, number of average questions, number of difficult questions etc) and which are the chapters to be included in each examinations etc.
+
+question setters should be able to upload questions for assigned examinations. the questions should be in picture format. for theory examination(multiple choice), there should be option to add choices, correct answer, difficulty level, max score etc. multiple choice should be single answered or more than one correct answer type too.
+
+school admin should be able to create invigilators, and view status of examinations like which exams are going on, number of students attended, remaining students etc.
+
+in invilgilator login, there should be option to student login. students should be added by state admin. using the student login, the student should be able to attend examinations alloted for him. once the allotted theroy questions(multiple choice) attended, he should be able to attend practical examination, where the allotted questions are loaded and there should be option to upload files which are the products of his practical work. while the student attending theory examination, he should not be able to open the applications or access filesystem in his laptop, as the questions are from various applications like calc, writer, gimp, geogebra etc.  but while attending practical examination, he should be able to open applocations and access file system.
+
+the inviglators should be able to evaluate the practical work and score it. multiple choice questions should be evalutated auatomatically. 
+
+school admin should be able to prepare the mark list after valuation is over.
+state admin should be able to prepare the marklist and concoldated reports(school wise, individual wise).
+
+use html, css, javascript, ajax,python , flask,  postgresql as database. dont use sqlalchemy.
+UI should be neat and stunning, should be very attractive and user friendly.
+
+ 
+
+
+
+
+
+
+
+

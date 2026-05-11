@@ -1,0 +1,116 @@
+{% extends "base.html" %}
+
+{% block title %}Manage Invigilators - School Admin{% endblock %}
+
+{% block sidebar %}
+<ul class="nav flex-column pt-3">
+    <li class="nav-item">
+        <a class="nav-link" href="{{ url_for('school_admin.dashboard') }}">
+            <i class="fas fa-home"></i> Dashboard
+        </a>
+    </li>
+    <li class="nav-item">
+        <a class="nav-link active" href="{{ url_for('school_admin.create_invigilator') }}">
+            <i class="fas fa-user-tie"></i> Invigilators
+        </a>
+    </li>
+    <li class="nav-item">
+        <a class="nav-link" href="{{ url_for('school_admin.view_students') }}">
+            <i class="fas fa-users"></i> Students
+        </a>
+    </li>
+    <li class="nav-item">
+        <a class="nav-link" href="{{ url_for('school_admin.exam_status') }}">
+            <i class="fas fa-desktop"></i> Live Exam Status
+        </a>
+    </li>
+    <li class="nav-item">
+        <a class="nav-link" href="{{ url_for('school_admin.prepare_marklist') }}">
+            <i class="fas fa-file-signature"></i> Prepare Marklist
+        </a>
+    </li>
+    <li class="nav-item">
+        <a class="nav-link" href="{{ url_for('school_admin.view_marklist') }}">
+            <i class="fas fa-list-ol"></i> View Marklists
+        </a>
+    </li>
+</ul>
+{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
+    <h1 class="h2">Manage Invigilators</h1>
+</div>
+
+<div class="row">
+    <div class="col-md-4 mb-4">
+        <div class="card shadow-sm">
+            <div class="card-header bg-white">
+                <h5 class="mb-0">Add Invigilator</h5>
+            </div>
+            <div class="card-body">
+                <form method="POST">
+                    <div class="mb-3">
+                        <label class="form-label">Full Name</label>
+                        <input type="text" name="full_name" class="form-control" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Username</label>
+                        <input type="text" name="username" class="form-control" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Password</label>
+                        <input type="password" name="password" class="form-control" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Email</label>
+                        <input type="email" name="email" class="form-control">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Phone</label>
+                        <input type="text" name="phone" class="form-control">
+                    </div>
+                    <button type="submit" class="btn btn-primary w-100">Create Invigilator</button>
+                </form>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-8 mb-4">
+        <div class="card shadow-sm">
+            <div class="card-header bg-white">
+                <h5 class="mb-0">Registered Invigilators</h5>
+            </div>
+            <div class="card-body p-0">
+                <div class="table-responsive">
+                    <table class="table table-hover mb-0">
+                        <thead class="table-light">
+                            <tr>
+                                <th>Name</th>
+                                <th>Username</th>
+                                <th>Contact</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for user in invigilators %}
+                            <tr>
+                                <td><strong>{{ user.full_name }}</strong></td>
+                                <td>{{ user.username }}</td>
+                                <td>
+                                    <div><small><i class="fas fa-envelope"></i> {{ user.email or 'N/A' }}</small></div>
+                                    <div><small><i class="fas fa-phone"></i> {{ user.phone or 'N/A' }}</small></div>
+                                </td>
+                            </tr>
+                            {% else %}
+                            <tr>
+                                <td colspan="3" class="text-center py-4 text-muted">No invigilators found</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,167 @@
+{% extends "base.html" %}
+
+{% block title %}State Admin Dashboard{% endblock %}
+
+{% block sidebar %}
+<ul class="nav flex-column">
+    <li class="nav-item">
+        <a class="nav-link active" href="/state-admin/dashboard">
+            <i class="fas fa-tachometer-alt"></i> Dashboard
+        </a>
+    </li>
+    <li class="nav-item">
+        <a class="nav-link" href="/state-admin/manage-schools">
+            <i class="fas fa-school"></i> Manage Schools
+        </a>
+    </li>
+    <li class="nav-item">
+        <a class="nav-link" href="/state-admin/create-school-admin">
+            <i class="fas fa-user-tie"></i> School Admins
+        </a>
+    </li>
+    <li class="nav-item">
+        <a class="nav-link" href="/state-admin/create-question-setter">
+            <i class="fas fa-user-edit"></i> Question Setters
+        </a>
+    </li>
+    <li class="nav-item">
+        <a class="nav-link" href="/state-admin/manage-students">
+            <i class="fas fa-user-graduate"></i> Students
+        </a>
+    </li>
+    <li class="nav-item">
+        <a class="nav-link" href="/state-admin/create-examination">
+            <i class="fas fa-file-alt"></i> Examinations
+        </a>
+    </li>
+    <li class="nav-item">
+        <a class="nav-link" href="/state-admin/assign-students-exam">
+            <i class="fas fa-tasks"></i> Assign Students
+        </a>
+    </li>
+    <li class="nav-item">
+        <a class="nav-link" href="/state-admin/mark-list">
+            <i class="fas fa-list-alt"></i> Mark List
+        </a>
+    </li>
+    <li class="nav-item">
+        <a class="nav-link" href="/state-admin/reports">
+            <i class="fas fa-chart-bar"></i> Reports
+        </a>
+    </li>
+</ul>
+{% endblock %}
+
+{% block content %}
+<h2 class="mb-4">State Admin Dashboard</h2>
+
+<div class="row">
+    <div class="col-xl-3 col-md-6 mb-4">
+        <div class="card card-stats">
+            <div class="card-body">
+                <div class="d-flex justify-content-between">
+                    <div>
+                        <h6 class="text-muted">Total Schools</h6>
+                        <div class="stat-value">{{ stats.total_schools }}</div>
+                    </div>
+                    <div class="align-self-center">
+                        <i class="fas fa-school fa-2x text-primary"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-xl-3 col-md-6 mb-4">
+        <div class="card card-stats">
+            <div class="card-body">
+                <div class="d-flex justify-content-between">
+                    <div>
+                        <h6 class="text-muted">Total Exams</h6>
+                        <div class="stat-value">{{ stats.total_exams }}</div>
+                    </div>
+                    <div class="align-self-center">
+                        <i class="fas fa-file-alt fa-2x text-success"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-xl-3 col-md-6 mb-4">
+        <div class="card card-stats">
+            <div class="card-body">
+                <div class="d-flex justify-content-between">
+                    <div>
+                        <h6 class="text-muted">Total Students</h6>
+                        <div class="stat-value">{{ stats.total_students }}</div>
+                    </div>
+                    <div class="align-self-center">
+                        <i class="fas fa-user-graduate fa-2x text-info"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-xl-3 col-md-6 mb-4">
+        <div class="card card-stats">
+            <div class="card-body">
+                <div class="d-flex justify-content-between">
+                    <div>
+                        <h6 class="text-muted">Active Exams</h6>
+                        <div class="stat-value">{{ stats.active_exams }}</div>
+                    </div>
+                    <div class="align-self-center">
+                        <i class="fas fa-clock fa-2x text-warning"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-header">
+        <h6 class="m-0 font-weight-bold text-primary">Recent Examinations</h6>
+    </div>
+    <div class="card-body">
+        <div class="table-responsive">
+            <table class="table">
+                <thead>
+                    <tr>
+                        <th>Exam Name</th>
+                        <th>Class</th>
+                        <th>Subject</th>
+                        <th>Start Date</th>
+                        <th>End Date</th>
+                        <th>Status</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for exam in recent_exams %}
+                    <tr>
+                        <td>{{ exam.exam_name }}</td>
+                        <td>{{ exam.class_name }}</td>
+                        <td>{{ exam.subject_name }}</td>
+                        <td>{{ exam.start_date }}</td>
+                        <td>{{ exam.end_date }}</td>
+                        <td>
+                            <span class="badge bg-{{ 'success' if exam.status == 'completed' else 'warning' if exam.status == 'ongoing' else 'info' }}">
+                                {{ exam.status }}
+                            </span>
+                        </td>
+                        <td>
+                            <a href="{{ url_for('state_admin.exam_questions', exam_id=exam.id) }}" class="btn btn-sm btn-primary">
+                                <i class="fas fa-question-circle"></i> Questions
+                            </a>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}

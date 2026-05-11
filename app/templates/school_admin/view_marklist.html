@@ -1,0 +1,108 @@
+{% extends "base.html" %}
+
+{% block title %}View Marklist - School Admin{% endblock %}
+
+{% block sidebar %}
+<ul class="nav flex-column pt-3">
+    <li class="nav-item"><a class="nav-link" href="{{ url_for('school_admin.dashboard') }}"><i class="fas fa-home"></i> Dashboard</a></li>
+    <li class="nav-item"><a class="nav-link" href="{{ url_for('school_admin.create_invigilator') }}"><i class="fas fa-user-tie"></i> Invigilators</a></li>
+    <li class="nav-item"><a class="nav-link" href="{{ url_for('school_admin.view_students') }}"><i class="fas fa-users"></i> Students</a></li>
+    <li class="nav-item"><a class="nav-link" href="{{ url_for('school_admin.exam_status') }}"><i class="fas fa-desktop"></i> Live Exam Status</a></li>
+    <li class="nav-item"><a class="nav-link" href="{{ url_for('school_admin.prepare_marklist') }}"><i class="fas fa-file-signature"></i> Prepare Marklist</a></li>
+    <li class="nav-item"><a class="nav-link active" href="{{ url_for('school_admin.view_marklist') }}"><i class="fas fa-list-ol"></i> View Marklists</a></li>
+</ul>
+{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
+    <h1 class="h2">Marklists</h1>
+</div>
+
+<div class="card shadow-sm mb-4">
+    <div class="card-body bg-light">
+        <form method="GET" class="row gx-3 gy-2 align-items-center">
+            <div class="col-sm-5">
+                <label class="visually-hidden">Examination</label>
+                <select name="exam_id" class="form-select">
+                    <option value="">All Examinations</option>
+                    {% for exam in exams %}
+                    <option value="{{ exam.id }}" {% if selected_exam|string == exam.id|string %}selected{% endif %}>{{ exam.exam_name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-auto">
+                <button type="submit" class="btn btn-primary"><i class="fas fa-filter"></i> Filter</button>
+                <a href="{{ url_for('school_admin.view_marklist') }}" class="btn btn-secondary"><i class="fas fa-redo"></i> Reset</a>
+            </div>
+            <div class="col-auto ms-auto">
+                <button type="button" class="btn btn-success" onclick="window.print()"><i class="fas fa-print"></i> Print</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<div class="card shadow-sm print-section">
+    <div class="card-body p-0">
+        <div class="table-responsive">
+            <table class="table table-hover table-striped mb-0 text-center align-middle">
+                <thead class="table-primary">
+                    <tr>
+                        <th class="text-start">Student Name</th>
+                        <th class="text-start">Username</th>
+                        <th>Examination</th>
+                        <th>Theory</th>
+                        <th>Practical</th>
+                        <th>Total</th>
+                        <th>Percentage</th>
+                        <th>Grade</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for result in marklist %}
+                    <tr>
+                        <td class="text-start"><strong>{{ result.student_name }}</strong></td>
+                        <td class="text-start text-muted">{{ result.username }}</td>
+                        <td>{{ result.exam_name }}</td>
+                        <td>{{ result.theory_score }}</td>
+                        <td>{{ result.practical_score }}</td>
+                        <td><strong>{{ result.total_score }}</strong></td>
+                        <td>{{ result.percentage }}%</td>
+                        <td>
+                            <span class="badge {% if result.grade in ['A+', 'A', 'B+', 'B'] %}bg-success{% elif result.grade in ['C+', 'C'] %}bg-warning{% else %}bg-danger{% endif %} py-2 px-3">
+                                {{ result.grade }}
+                            </span>
+                        </td>
+                    </tr>
+                    {% else %}
+                    <tr>
+                        <td colspan="8" class="text-center py-5 text-muted">
+                            <i class="fas fa-folder-open fa-3x mb-3 text-light"></i>
+                            <p>No marklist records found. You may need to generate them first.</p>
+                            <a href="{{ url_for('school_admin.prepare_marklist') }}" class="btn btn-primary mt-2">Prepare Marklist</a>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<style>
+@media print {
+    .sidebar, .navbar, form, .btn, .alert {
+        display: none !important;
+    }
+    .col-md-10 {
+        width: 100% !important;
+        max-width: 100% !important;
+        margin: 0 !important;
+        padding: 0 !important;
+    }
+    .card {
+        border: none !important;
+        box-shadow: none !important;
+    }
+}
+</style>
+{% endblock %}

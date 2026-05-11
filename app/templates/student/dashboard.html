@@ -1,0 +1,97 @@
+{% extends "base.html" %}
+
+{% block title %}Student Dashboard{% endblock %}
+
+{% block sidebar %}
+<ul class="nav flex-column pt-3">
+    <li class="nav-item">
+        <a class="nav-link active" href="{{ url_for('student.dashboard') }}">
+            <i class="fas fa-home"></i> Dashboard
+        </a>
+    </li>
+    <li class="nav-item">
+        <a class="nav-link" href="{{ url_for('student.results') }}">
+            <i class="fas fa-certificate"></i> My Results
+        </a>
+    </li>
+</ul>
+{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
+    <h1 class="h2">My Examinations</h1>
+</div>
+
+<div class="row">
+    {% for exam in exams %}
+    <div class="col-md-6 col-lg-4 mb-4">
+        <div class="card h-100 shadow-sm border-0 exam-card {% if exam.theory_status == 'completed' and exam.practical_status == 'completed' %}completed{% elif exam.theory_status == 'in_progress' or exam.practical_status == 'in_progress' %}ongoing{% endif %}">
+            <div class="card-body">
+                <div class="d-flex justify-content-between mb-3 border-bottom pb-2">
+                    <h5 class="card-title text-primary fw-bold mb-0">{{ exam.exam_name }}</h5>
+                    <span class="badge bg-secondary">{{ exam.subject_name }}</span>
+                </div>
+                
+                <p class="mb-1 text-muted small"><i class="far fa-calendar-alt w-20px"></i> {{ exam.start_date.strftime('%b %d, %Y') }} - {{ exam.end_date.strftime('%b %d, %Y') }}</p>
+                <p class="mb-3 text-muted small"><i class="far fa-clock w-20px"></i> Duration: {{ exam.duration_minutes }} mins</p>
+                
+                <div class="bg-light rounded p-3 mb-3 text-center">
+                    <div class="row">
+                        <div class="col-6 border-end">
+                            <div class="small text-muted mb-1">Theory</div>
+                            {% if exam.theory_status == 'completed' %}
+                            <span class="badge bg-success"><i class="fas fa-check"></i> Done</span>
+                            {% elif exam.theory_status == 'in_progress' %}
+                            <span class="badge bg-warning text-dark"><i class="fas fa-spinner fa-spin"></i> In Progress</span>
+                            {% else %}
+                            <span class="badge bg-secondary">Pending</span>
+                            {% endif %}
+                        </div>
+                        <div class="col-6">
+                            <div class="small text-muted mb-1">Practical</div>
+                            {% if exam.practical_status == 'completed' %}
+                            <span class="badge bg-success"><i class="fas fa-check"></i> Done</span>
+                            {% elif exam.practical_status == 'in_progress' %}
+                            <span class="badge bg-warning text-dark"><i class="fas fa-spinner fa-spin"></i> In Progress</span>
+                            {% else %}
+                            <span class="badge bg-secondary">Pending</span>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="d-grid gap-2">
+                    {% if exam.status == 'draft' %}
+                    <button class="btn btn-secondary" disabled title="This examination has not been published by the admin yet.">
+                        <i class="fas fa-lock me-1"></i> Coming Soon (Draft)
+                    </button>
+                    {% elif exam.theory_status != 'completed' %}
+                    <a href="{{ url_for('student.attend_theory', student_exam_id=exam.id) }}" class="btn btn-primary">
+                        <i class="fas fa-laptop-code me-1"></i> Attend Theory Exam
+                    </a>
+                    {% elif exam.practical_status != 'completed' %}
+                    <a href="{{ url_for('student.attend_practical', student_exam_id=exam.id) }}" class="btn btn-success">
+                        <i class="fas fa-tools me-1"></i> Attend Practical Exam
+                    </a>
+                    {% else %}
+                    <button class="btn btn-outline-secondary" disabled>
+                        <i class="fas fa-check-circle me-1"></i> Examination Completed
+                    </button>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+    {% else %}
+    <div class="col-12">
+        <div class="card bg-light border-0 shadow-sm text-center py-5">
+            <div class="card-body">
+                <i class="fas fa-calendar-times fa-4x text-muted mb-3 opacity-50"></i>
+                <h5>No Examinations Assigned</h5>
+                <p class="text-muted">You have not been assigned any examinations yet. Please check back later.</p>
+            </div>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+{% endblock %}

@@ -1,0 +1,222 @@
+{% extends "base.html" %}
+
+{% block title %}Evaluate Practical - Invigilator{% endblock %}
+
+{% block sidebar %}
+<ul class="nav flex-column pt-3">
+    <li class="nav-item">
+        <a class="nav-link" href="{{ url_for('invigilator.dashboard') }}">
+            <i class="fas fa-home"></i> Dashboard
+        </a>
+    </li>
+    <li class="nav-item">
+        <a class="nav-link active" href="{{ url_for('invigilator.evaluate_practical') }}">
+            <i class="fas fa-check-double"></i> Evaluate Practical
+        </a>
+    </li>
+    <li class="nav-item">
+        <a class="nav-link" href="{{ url_for('invigilator.evaluate_practical', status='pending') }}">
+            <i class="fas fa-clock"></i> Pending Evaluations
+            {% if invigilator_pending_count > 0 %}
+            <span class="badge bg-danger rounded-pill float-end">{{ invigilator_pending_count }}</span>
+            {% endif %}
+        </a>
+    </li>
+</ul>
+{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
+    <h1 class="h2">Evaluate Practical Submissions</h1>
+</div>
+
+<!-- Filters -->
+<div class="card shadow-sm mb-4">
+    <div class="card-body">
+        <form method="GET" class="row g-3">
+            <div class="col-md-3">
+                <label class="form-label">Examination</label>
+                <select name="exam_id" class="form-select">
+                    <option value="">All Examinations</option>
+                    {% for exam in exams %}
+                    <option value="{{ exam.id }}" {% if filters.exam_id == exam.id|string %}selected{% endif %}>{{ exam.exam_name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-2">
+                <label class="form-label">Status</label>
+                <select name="status" class="form-select">
+                    <option value="">All Status</option>
+                    <option value="pending" {% if filters.status == 'pending' %}selected{% endif %}>Pending</option>
+                    <option value="evaluated" {% if filters.status == 'evaluated' %}selected{% endif %}>Evaluated</option>
+                </select>
+            </div>
+            <div class="col-md-2">
+                <label class="form-label">Class</label>
+                <select name="class_id" class="form-select">
+                    <option value="">All Classes</option>
+                    {% for cls in classes %}
+                    <option value="{{ cls.id }}" {% if filters.class_id == cls.id|string %}selected{% endif %}>{{ cls.class_name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-3">
+                <label class="form-label">Student Search</label>
+                <input type="text" name="student_query" class="form-control" placeholder="Name or Reg No..." value="{{ filters.student_query or '' }}">
+            </div>
+            <div class="col-md-2 d-flex align-items-end">
+                <button type="submit" class="btn btn-primary w-100"><i class="fas fa-filter me-2"></i>Filter</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<div class="card shadow-sm">
+    <div class="card-body p-0">
+        <div class="table-responsive">
+            <table class="table table-hover mb-0 align-middle">
+                <thead class="table-light">
+                    <tr>
+                        <th>Date & Time</th>
+                        <th>Student</th>
+                        <th>Class</th>
+                        <th>Examination</th>
+                        <th>Submission File</th>
+                        <th>Status</th>
+                        <th>Action</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for sub in submissions %}
+                    <tr {% if sub.is_locked %}class="table-light text-muted opacity-75"{% endif %}>
+                        <td>{{ sub.submission_time.strftime('%Y-%m-%d %H:%M') }}</td>
+                        <td>
+                            <strong>{{ sub.student_name }}</strong><br>
+                            <small class="text-muted">{{ sub.username }}</small>
+                        </td>
+                        <td>{{ sub.class_name }}</td>
+                        <td>{{ sub.exam_name }}</td>
+                        <td>
+                            <a href="{{ url_for('files.get_submission_file', submission_id=sub.submission_id) }}" target="_blank" class="btn btn-sm btn-outline-info">
+                                <i class="fas fa-download"></i> Download
+                            </a>
+                            <br><small class="text-muted">{{ sub.file_name }}</small>
+                        </td>
+                        <td>
+                            {% if sub.remarks %}
+                            <span class="badge bg-success"><i class="fas fa-check"></i> Evaluated</span>
+                            {% else %}
+                            <span class="badge bg-warning text-dark"><i class="fas fa-clock"></i> Pending</span>
+                            {% endif %}
+                            
+                            {% if sub.is_locked %}
+                            <br><span class="badge bg-secondary mt-1"><i class="fas fa-lock"></i> Locked</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if sub.is_locked %}
+                            <button class="btn btn-sm btn-outline-secondary disabled" title="Mark list finalized - Locked">
+                                <i class="fas fa-lock"></i> Evaluated
+                            </button>
+                            {% else %}
+                            <button class="btn btn-sm btn-primary evaluate-btn" 
+                                    data-id="{{ sub.submission_id }}"
+                                    data-student="{{ sub.student_name }}"
+                                    data-exam="{{ sub.exam_name }}"
+                                    data-max="{{ sub.max_score }}"
+                                    data-question="{{ sub.question_text|escape }}"
+                                    data-qid="{{ sub.question_id }}"
+                                    data-has-image="{{ sub.has_image }}">
+                                {% if sub.remarks %}Edit Score{% else %}Evaluate{% endif %}
+                            </button>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% else %}
+                    <tr>
+                        <td colspan="7" class="text-center py-5 text-muted">
+                            <i class="fas fa-clipboard-check fa-3x mb-3 text-light"></i>
+                            <p>No practical submissions matching your criteria.</p>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- Evaluation Modal -->
+<div class="modal fade" id="evaluationModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header bg-light">
+                <h5 class="modal-title">Evaluate Submission</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="mb-3 pb-3 border-bottom">
+                    <p class="mb-1"><strong>Student:</strong> <span id="modalStudentName"></span></p>
+                    <p class="mb-1"><strong>Exam:</strong> <span id="modalExamName"></span></p>
+                    <p class="mb-1 mt-2"><strong>Question:</strong> <br><span id="modalQuestionText" class="text-muted"></span></p>
+                    <div id="modalQuestionImageContainer" class="mt-2 d-none">
+                        <img id="modalQuestionImage" src="" class="img-fluid border rounded" alt="Question Image">
+                    </div>
+                </div>
+                
+                <form method="POST" id="evaluationForm">
+                    <input type="hidden" name="submission_id" id="modalSubmissionId">
+                    
+                    <div class="mb-3">
+                        <label class="form-label fw-bold">Score Obtained</label>
+                        <div class="input-group">
+                            <input type="number" name="score" id="modalScore" class="form-control form-control-lg text-center" required min="0" step="1">
+                            <span class="input-group-text">/ <span id="modalMaxScore"></span></span>
+                        </div>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label class="form-label fw-bold">Remarks (Optional)</label>
+                        <textarea name="remarks" class="form-control" rows="3" placeholder="Enter feedback or notes..."></textarea>
+                    </div>
+                    
+                    <button type="submit" class="btn btn-success w-100 btn-lg"><i class="fas fa-save"></i> Save Evaluation</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+$(document).ready(function() {
+    $('.evaluate-btn').click(function() {
+        let id = $(this).data('id');
+        let student = $(this).data('student');
+        let exam = $(this).data('exam');
+        let max = $(this).data('max');
+        let question = $(this).data('question');
+        let qid = $(this).data('qid');
+        let hasImage = $(this).data('has-image');
+        
+        $('#modalSubmissionId').val(id);
+        $('#modalStudentName').text(student);
+        $('#modalExamName').text(exam);
+        $('#modalQuestionText').text(question);
+        $('#modalMaxScore').text(max);
+        $('#modalScore').attr('max', max);
+        
+        if (hasImage == '1' || hasImage === 1) {
+            $('#modalQuestionImage').attr('src', '/files/question/' + qid);
+            $('#modalQuestionImageContainer').removeClass('d-none');
+        } else {
+            $('#modalQuestionImageContainer').addClass('d-none');
+        }
+        
+        var evalModal = new bootstrap.Modal(document.getElementById('evaluationModal'));
+        evalModal.show();
+    });
+});
+</script>
+{% endblock %}

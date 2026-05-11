@@ -1,0 +1,62 @@
+{% extends "base.html" %}
+
+{% block title %}Examination Complete{% endblock %}
+
+{% block sidebar %}
+<ul class="nav flex-column pt-3">
+    {% if not session.get('invigilator_id') %}
+    <li class="nav-item">
+        <a class="nav-link" href="{{ url_for('student.dashboard') }}">
+            <i class="fas fa-home"></i> Dashboard
+        </a>
+    </li>
+    {% endif %}
+</ul>
+{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center mt-5">
+    <div class="col-md-8 col-lg-6">
+        <div class="card shadow border-0 text-center py-5">
+            <div class="card-body">
+                <i class="fas fa-check-circle text-success mb-4" style="font-size: 5rem;"></i>
+                <h2 class="mb-3">Examination Submitted Successfully!</h2>
+                
+                <p class="lead text-muted mb-4">
+                    You have successfully completed the <strong>{{ exam_type|title }}</strong> section of the examination.
+                </p>
+                
+                <div class="alert alert-info border-0 bg-light text-dark shadow-sm d-inline-block px-4 py-3 mb-4 text-start">
+                    <ul class="mb-0">
+                        <li>Your answers have been securely saved.</li>
+                        {% if exam_type == 'theory' %}
+                        <li>If you have a practical exam assigned, please proceed to it from your dashboard.</li>
+                        {% else %}
+                        <li>Your files have been sent to the invigilator for evaluation.</li>
+                        {% endif %}
+                    </ul>
+                </div>
+                
+                <div class="mt-4 d-flex flex-column flex-sm-row gap-3 justify-content-center">
+                    {% if session.get('invigilator_id') %}
+                        {# Student logged in via invigilator terminal — offer dashboard then invigilator return #}
+                        <a href="{{ url_for('student.dashboard') }}" class="btn btn-outline-secondary btn-lg px-4">
+                            <i class="fas fa-home me-2"></i> My Dashboard
+                        </a>
+                        <form action="{{ url_for('invigilator.student_logout') }}" method="POST" class="d-inline">
+                            <button type="submit" class="btn btn-danger btn-lg px-4"
+                                onclick="return confirm('End your exam session and return control to the invigilator?')">
+                                <i class="fas fa-sign-out-alt me-2"></i> End Session &amp; Return to Invigilator
+                            </button>
+                        </form>
+                    {% else %}
+                        <a href="{{ url_for('student.dashboard') }}" class="btn btn-primary btn-lg px-5">
+                            <i class="fas fa-home me-2"></i> Return to Dashboard
+                        </a>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

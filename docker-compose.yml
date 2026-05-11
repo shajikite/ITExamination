@@ -1,0 +1,44 @@
+version: '3.8'
+
+services:
+  web:
+    build: .
+    container_name: exam_flask_app
+    ports:
+      - "5000:5000"
+    volumes:
+      - ./app:/app/app
+      - ./run.py:/app/run.py
+      - ./uploads:/app/uploads
+    environment:
+      - FLASK_ENV=development
+      - DATABASE_URL=postgresql://exam_user:exam_password@db:5432/exam_db
+      - PYTHONPATH=/app
+    depends_on:
+      - db
+    networks:
+      - exam_network
+    restart: unless-stopped
+
+  db:
+    image: postgres:15-alpine
+    container_name: exam_postgres_db
+    environment:
+      - POSTGRES_USER=exam_user
+      - POSTGRES_PASSWORD=exam_password
+      - POSTGRES_DB=exam_db
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./app/database/schema.sql:/docker-entrypoint-initdb.d/01_schema.sql
+    ports:
+      - "5432:5432"
+    networks:
+      - exam_network
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
+
+networks:
+  exam_network:
+    driver: bridge

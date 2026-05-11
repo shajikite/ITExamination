@@ -1,0 +1,139 @@
+{% extends "base.html" %}
+
+{% block title %}Reports - State Admin{% endblock %}
+
+{% block sidebar %}
+<ul class="nav flex-column pt-3">
+    <li class="nav-item"><a class="nav-link" href="{{ url_for('state_admin.dashboard') }}"><i class="fas fa-home"></i> Dashboard</a></li>
+    <li class="nav-item"><a class="nav-link" href="{{ url_for('state_admin.manage_schools') }}"><i class="fas fa-school"></i> Manage Schools</a></li>
+    <li class="nav-item"><a class="nav-link" href="{{ url_for('state_admin.create_school_admin') }}"><i class="fas fa-user-shield"></i> School Admins</a></li>
+    <li class="nav-item"><a class="nav-link" href="{{ url_for('state_admin.create_question_setter') }}"><i class="fas fa-chalkboard-teacher"></i> Question Setters</a></li>
+    <li class="nav-item"><a class="nav-link" href="{{ url_for('state_admin.create_examination') }}"><i class="fas fa-file-alt"></i> Examinations</a></li>
+    <li class="nav-item"><a class="nav-link" href="{{ url_for('state_admin.manage_students') }}"><i class="fas fa-user-graduate"></i> Students</a></li>
+    <li class="nav-item"><a class="nav-link" href="{{ url_for('state_admin.assign_students_exam') }}"><i class="fas fa-clipboard-check"></i> Assign Exams</a></li>
+    <li class="nav-item"><a class="nav-link active" href="{{ url_for('state_admin.reports') }}"><i class="fas fa-chart-bar"></i> Reports</a></li>
+    <li class="nav-item"><a class="nav-link" href="{{ url_for('state_admin.mark_list') }}"><i class="fas fa-list-ol"></i> Mark Lists</a></li>
+</ul>
+{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
+    <h1 class="h2">Examination Reports</h1>
+</div>
+
+<div class="card shadow-sm mb-4">
+    <div class="card-body">
+        <form method="GET" class="row g-3 align-items-end">
+            <div class="col-md-4">
+                <label for="exam_id" class="form-label">Select Examination</label>
+                <select name="exam_id" id="exam_id" class="form-select" required>
+                    <option value="" disabled {% if not selected_exam_id %}selected{% endif %}>Choose an examination...</option>
+                    {% for exam in exams %}
+                    <option value="{{ exam.id }}" {% if selected_exam_id == exam.id %}selected{% endif %}>
+                        {{ exam.exam_name }}
+                    </option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-4">
+                <label for="school_id" class="form-label">Filter by School (Optional)</label>
+                <select name="school_id" id="school_id" class="form-select">
+                    <option value="" {% if not selected_school_id %}selected{% endif %}>All Schools</option>
+                    {% for school in schools %}
+                    <option value="{{ school.id }}" {% if selected_school_id == school.id %}selected{% endif %}>
+                        {{ school.school_name }}
+                    </option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-2">
+                <button type="submit" class="btn btn-primary w-100">
+                    <i class="fas fa-filter"></i> Generate Report
+                </button>
+            </div>
+            <div class="col-md-2">
+                <a href="{{ url_for('state_admin.reports') }}" class="btn btn-outline-secondary w-100">Reset</a>
+            </div>
+        </form>
+    </div>
+</div>
+
+{% if selected_exam_id %}
+<div class="row">
+    <div class="col-12 mb-4">
+        <div class="card shadow-sm">
+            <div class="card-header bg-white d-flex justify-content-between align-items-center">
+                <h5 class="mb-0">School Wise Progress</h5>
+                <button class="btn btn-sm btn-outline-success" onclick="window.print()">
+                    <i class="fas fa-print"></i> Print Report
+                </button>
+            </div>
+            <div class="card-body p-0">
+                <div class="table-responsive">
+                    <table class="table table-hover mb-0">
+                        <thead class="table-light">
+                            <tr>
+                                <th>School Name</th>
+                                <th class="text-center">Registered</th>
+                                <th class="text-center">Completed</th>
+                                <th class="text-center">Ongoing</th>
+                                <th class="text-center">Evaluation Completed</th>
+                                <th class="text-center">Average Score</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for report in school_reports %}
+                            <tr>
+                                <td><strong>{{ report.school_name }}</strong></td>
+                                <td class="text-center"><span class="badge bg-secondary">{{ report.registered }}</span></td>
+                                <td class="text-center"><span class="badge bg-success">{{ report.completed }}</span></td>
+                                <td class="text-center"><span class="badge bg-warning text-dark">{{ report.ongoing }}</span></td>
+                                <td class="text-center"><span class="badge bg-info text-dark">{{ report.evaluation_completed }}</span></td>
+                                <td class="text-center">
+                                    {% if report.avg_score is not none %}
+                                    <div class="d-flex align-items-center justify-content-center">
+                                        <div class="progress flex-grow-1 mx-2" style="height: 10px; min-width: 100px;">
+                                            <div class="progress-bar {% if report.avg_score >= 80 %}bg-success{% elif report.avg_score >= 50 %}bg-warning{% else %}bg-danger{% endif %}" 
+                                                 role="progressbar" style="width: {{ report.avg_score }}%;" 
+                                                 aria-valuenow="{{ report.avg_score }}" aria-valuemin="0" aria-valuemax="100">
+                                            </div>
+                                        </div>
+                                        <span class="small font-weight-bold">{{ "%.1f"|format(report.avg_score) }}%</span>
+                                    </div>
+                                    {% else %}
+                                    <span class="text-muted small">N/A</span>
+                                    {% endif %}
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                        {% if totals %}
+                        <tfoot class="table-dark">
+                            <tr>
+                                <td><strong>GRAND TOTAL</strong></td>
+                                <td class="text-center">{{ totals.registered }}</td>
+                                <td class="text-center">{{ totals.completed }}</td>
+                                <td class="text-center">{{ totals.ongoing }}</td>
+                                <td class="text-center">{{ totals.evaluation_completed }}</td>
+                                <td class="text-center">
+                                    <strong>{{ "%.1f"|format(totals.avg_score) }}%</strong> (Overall)
+                                </td>
+                            </tr>
+                        </tfoot>
+                        {% endif %}
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% else %}
+<div class="text-center py-5">
+    <div class="mb-3 text-muted">
+        <i class="fas fa-chart-line fa-4x"></i>
+    </div>
+    <h4>Please select an examination to view school-wise reports.</h4>
+    <p class="text-muted">Use the dropdown above to filter statistics by examination.</p>
+</div>
+{% endif %}
+{% endblock %}

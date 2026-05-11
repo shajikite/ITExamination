@@ -1,0 +1,222 @@
+{% extends "base.html" %}
+
+{% block title %}Dashboard - Invigilator{% endblock %}
+
+{% block sidebar %}
+<ul class="nav flex-column pt-3">
+    <li class="nav-item">
+        <a class="nav-link active" href="{{ url_for('invigilator.dashboard') }}">
+            <i class="fas fa-home"></i> Dashboard
+        </a>
+    </li>
+    <li class="nav-item">
+        <a class="nav-link" href="{{ url_for('invigilator.evaluate_practical') }}">
+            <i class="fas fa-check-double"></i> Evaluate Practical
+        </a>
+    </li>
+    <li class="nav-item">
+        <a class="nav-link" href="{{ url_for('invigilator.evaluate_practical', status='pending') }}">
+            <i class="fas fa-clock"></i> Pending Evaluations
+            {% if invigilator_pending_count > 0 %}
+            <span class="badge bg-danger rounded-pill float-end">{{ invigilator_pending_count }}</span>
+            {% endif %}
+        </a>
+    </li>
+</ul>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+.login-terminal {
+    background: linear-gradient(135deg, #1a1a2e 0%, #16213e 60%, #0f3460 100%);
+    border-radius: 16px;
+    padding: 2rem;
+    color: #fff;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.35);
+}
+.login-terminal .terminal-header {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin-bottom: 1.5rem;
+    padding-bottom: 1rem;
+    border-bottom: 1px solid rgba(255,255,255,0.12);
+}
+.login-terminal .terminal-dot {
+    width: 12px; height: 12px; border-radius: 50%;
+    display: inline-block;
+}
+.login-terminal .dot-red   { background: #ff5f57; }
+.login-terminal .dot-yellow{ background: #febc2e; }
+.login-terminal .dot-green { background: #28c840; }
+.login-terminal .form-control {
+    background: rgba(255,255,255,0.08);
+    border: 1px solid rgba(255,255,255,0.18);
+    color: #fff;
+    border-radius: 8px;
+}
+.login-terminal .form-control::placeholder { color: rgba(255,255,255,0.4); }
+.login-terminal .form-control:focus {
+    background: rgba(255,255,255,0.13);
+    border-color: #4ea8de;
+    box-shadow: 0 0 0 3px rgba(78,168,222,0.25);
+    color: #fff;
+}
+.login-terminal label { color: rgba(255,255,255,0.75); font-size: 0.85rem; font-weight: 600; letter-spacing: 0.04em; }
+.btn-authorize {
+    background: linear-gradient(90deg, #4ea8de, #56cfe1);
+    border: none;
+    color: #fff;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    border-radius: 8px;
+    padding: 0.65rem 1.5rem;
+    transition: opacity 0.2s, transform 0.15s;
+}
+.btn-authorize:hover { opacity: 0.88; transform: translateY(-1px); color: #fff; }
+.alert-terminal {
+    background: rgba(255,82,82,0.18);
+    border: 1px solid rgba(255,82,82,0.35);
+    color: #ff8080;
+    border-radius: 8px;
+    font-size: 0.88rem;
+    display: none;
+    margin-top: 0.75rem;
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
+    <h1 class="h2">Invigilator Dashboard</h1>
+</div>
+
+<div class="row justify-content-center">
+    <!-- Student Login Terminal -->
+    <div class="col-lg-6 mb-4">
+        <div class="login-terminal">
+            <div class="terminal-header">
+                <span class="terminal-dot dot-red"></span>
+                <span class="terminal-dot dot-yellow"></span>
+                <span class="terminal-dot dot-green"></span>
+                <span class="ms-2 fw-bold" style="font-size:0.92rem; letter-spacing:0.05em; opacity:0.8;">
+                    <i class="fas fa-shield-alt me-1"></i> STUDENT LOGIN TERMINAL
+                </span>
+            </div>
+
+            <p style="font-size:0.83rem; opacity:0.6;" class="mb-4">
+                Ask the student to enter their credentials below. Once authenticated,
+                the session will switch to the student's exam portal.
+                The invigilator session will be restored automatically when the student finishes.
+            </p>
+
+            <form id="studentAuthForm" autocomplete="off">
+                <div class="mb-3">
+                    <label for="studentUsername">Username / Register No.</label>
+                    <div class="input-group">
+                        <span class="input-group-text bg-transparent border-end-0" style="border-color:rgba(255,255,255,0.18);color:rgba(255,255,255,0.5);">
+                            <i class="fas fa-user"></i>
+                        </span>
+                        <input type="text" id="studentUsername" name="username"
+                               class="form-control border-start-0"
+                               placeholder="Enter register number..." required autocomplete="new-password">
+                    </div>
+                </div>
+                <div class="mb-4">
+                    <label for="studentPassword">Password</label>
+                    <div class="input-group">
+                        <span class="input-group-text bg-transparent border-end-0" style="border-color:rgba(255,255,255,0.18);color:rgba(255,255,255,0.5);">
+                            <i class="fas fa-lock"></i>
+                        </span>
+                        <input type="password" id="studentPassword" name="password"
+                               class="form-control border-start-0"
+                               placeholder="Enter password..." required autocomplete="new-password">
+                        <button type="button" class="input-group-text bg-transparent"
+                                style="border-color:rgba(255,255,255,0.18);color:rgba(255,255,255,0.5); cursor:pointer;"
+                                onclick="togglePassword()">
+                            <i class="fas fa-eye" id="pwToggleIcon"></i>
+                        </button>
+                    </div>
+                </div>
+
+                <div id="authError" class="alert-terminal px-3 py-2 mb-3">
+                    <i class="fas fa-exclamation-triangle me-1"></i>
+                    <span id="authErrorMsg">Authentication failed.</span>
+                </div>
+
+                <button type="button" class="btn btn-authorize w-100 py-2" onclick="authorizeStudent()" id="authorizeBtn">
+                    <i class="fas fa-sign-in-alt me-2"></i> Authorize & Start Exam Session
+                </button>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function togglePassword() {
+    const pw = document.getElementById('studentPassword');
+    const icon = document.getElementById('pwToggleIcon');
+    if (pw.type === 'password') {
+        pw.type = 'text';
+        icon.classList.replace('fa-eye', 'fa-eye-slash');
+    } else {
+        pw.type = 'password';
+        icon.classList.replace('fa-eye-slash', 'fa-eye');
+    }
+}
+
+function authorizeStudent() {
+    const username = document.getElementById('studentUsername').value.trim();
+    const password = document.getElementById('studentPassword').value.trim();
+    const errBox   = document.getElementById('authError');
+    const errMsg   = document.getElementById('authErrorMsg');
+    const btn      = document.getElementById('authorizeBtn');
+
+    errBox.style.display = 'none';
+
+    if (!username || !password) {
+        errMsg.textContent = 'Please enter both username and password.';
+        errBox.style.display = 'block';
+        return;
+    }
+
+    btn.disabled = true;
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i> Authenticating...';
+
+    $.ajax({
+        url: '{{ url_for("invigilator.student_login") }}',
+        type: 'POST',
+        data: { username: username, password: password },
+        success: function(response) {
+            if (response.success) {
+                btn.innerHTML = '<i class="fas fa-check me-2"></i> Access Granted — Redirecting...';
+                window.location.href = response.redirect_url;
+            } else {
+                errMsg.textContent = response.message || 'Authentication failed.';
+                errBox.style.display = 'block';
+                btn.disabled = false;
+                btn.innerHTML = '<i class="fas fa-sign-in-alt me-2"></i> Authorize & Start Exam Session';
+            }
+        },
+        error: function(xhr) {
+            let msg = 'An error occurred. Please try again.';
+            if (xhr.responseJSON && xhr.responseJSON.message) msg = xhr.responseJSON.message;
+            errMsg.textContent = msg;
+            errBox.style.display = 'block';
+            btn.disabled = false;
+            btn.innerHTML = '<i class="fas fa-sign-in-alt me-2"></i> Authorize & Start Exam Session';
+        }
+    });
+}
+
+// Allow Enter key submission from password field
+document.getElementById('studentPassword').addEventListener('keydown', function(e) {
+    if (e.key === 'Enter') { e.preventDefault(); authorizeStudent(); }
+});
+document.getElementById('studentUsername').addEventListener('keydown', function(e) {
+    if (e.key === 'Enter') { e.preventDefault(); document.getElementById('studentPassword').focus(); }
+});
+</script>
+{% endblock %}

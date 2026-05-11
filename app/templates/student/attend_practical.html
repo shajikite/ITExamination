@@ -1,0 +1,593 @@
+{% extends "base.html" %}
+
+{% block title %}Practical Examination - {{ exam.exam_name }}{% endblock %}
+
+{% block content %}
+<div class="lockdown-screen" id="lockdownScreen">
+    <div class="exam-container">
+        <!-- Top Section: Header and Timer -->
+        <div class="row align-items-center mb-3">
+            <div class="col-md-8">
+                <h3 class="mb-1 text-success"><i class="fas fa-tools me-2"></i> {{ exam.exam_name }} - Practical</h3>
+                <p class="text-muted mb-0 small">Class: {{ exam.class_name }} | Subject: {{ exam.subject_name }}</p>
+            </div>
+            <div class="col-md-4 text-end">
+                <div class="timer" id="timer">
+                    <i class="fas fa-clock me-2"></i> 
+                    <span id="timeRemaining">{{ '%02d:%02d' | format(remaining_seconds // 60, remaining_seconds % 60) }}</span>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Progress Bar -->
+        <div class="progress mb-4" style="height: 8px;">
+            <div class="progress-bar progress-bar-striped progress-bar-animated bg-success" id="progressBar" style="width: 0%"></div>
+        </div>
+        
+        <!-- Middle Section: Navigation and Questions -->
+        <div class="row flex-grow-1 overflow-hidden">
+            <!-- Left Sidebar: Question Navigation -->
+            <div class="col-md-2 h-100">
+                <div class="question-nav-container card shadow-sm h-100">
+                    <div class="card-header bg-white py-3">
+                        <h6 class="mb-0 fw-bold small"><i class="fas fa-list-ol me-2"></i>Tasks Panel</h6>
+                    </div>
+                    <div class="question-nav-scroll p-2">
+                        <div class="d-flex flex-wrap gap-2 justify-content-center py-2" id="questionNavPanel">
+                            {% for slot in slots %}
+                            <button type="button" class="btn btn-outline-secondary question-nav-btn" onclick="showSlot({{ loop.index0 }})" id="nav-btn-{{ loop.index0 }}" style="width: 38px; height: 38px; padding: 0; font-weight: 600; font-size: 0.9rem;">
+                                {{ loop.index }}
+                            </button>
+                            {% endfor %}
+                        </div>
+                    </div>
+                    <div class="card-footer bg-light p-2 x-small" style="font-size: 0.75rem;">
+                        <p class="mb-1"><i class="fas fa-info-circle me-1"></i> Blue: Active</p>
+                        <p class="mb-0"><i class="fas fa-check-circle text-success me-1"></i> Green: Uploaded</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Right Area: Question Card -->
+            <div class="col-md-10 h-100">
+                <form id="finishExamForm" action="{{ url_for('student.complete_practical') }}" method="POST" class="h-100 d-flex flex-column">
+                    <input type="hidden" name="student_exam_id" value="{{ student_exam_id }}">
+                    
+                    <div class="question-area flex-grow-1">
+                        {% for slot in slots %}
+                        {% set q1 = slot.q1 %}
+                        {% set q2 = slot.q2 %}
+                        <div class="question-card-fixed {% if not loop.first %}d-none{% endif %}" id="slot-card-{{ loop.index0 }}" data-slot-index="{{ loop.index0 }}">
+                            <div class="question-card-body">
+                                <div class="d-flex justify-content-between align-items-center mb-3">
+                                    <h5 class="mb-0 fw-bold text-success">Task Slot {{ loop.index }}</h5>
+                                    <div class="d-flex gap-2">
+                                        <span class="badge bg-secondary px-2 py-1 small">
+                                            <i class="fas fa-star me-1"></i> {{ q1.max_score }} Pts
+                                        </span>
+                                    </div>
+                                </div>
+                                
+                                <div class="alert alert-warning py-2 small mb-3">
+                                    <i class="fas fa-exclamation-triangle me-2"></i> 
+                                    This slot provides two alternative tasks. You can choose either **Alternative A** or **Alternative B** to perform.
+                                </div>
+
+                                <!-- Alternative Tabs -->
+                                <ul class="nav nav-pills mb-3 bg-white p-1 rounded border d-inline-flex" id="slotTabs-{{ loop.index0 }}" role="tablist">
+                                    <li class="nav-item" role="presentation">
+                                        <button class="nav-link active choice-tab-btn px-4 py-2" 
+                                                id="tab-a-{{ loop.index0 }}" 
+                                                data-bs-toggle="pill" 
+                                                data-bs-target="#content-a-{{ loop.index0 }}" 
+                                                type="button" role="tab">
+                                            Alternative A
+                                        </button>
+                                    </li>
+                                    {% if q2 %}
+                                    <li class="nav-item" role="presentation">
+                                        <button class="nav-link choice-tab-btn px-4 py-2" 
+                                                id="tab-b-{{ loop.index0 }}" 
+                                                data-bs-toggle="pill" 
+                                                data-bs-target="#content-b-{{ loop.index0 }}" 
+                                                type="button" role="tab">
+                                            Alternative B
+                                        </button>
+                                    </li>
+                                    {% endif %}
+                                </ul>
+
+                                <div class="tab-content bg-light p-4 rounded border" id="slotContent-{{ loop.index0 }}">
+                                    <!-- Alternative A -->
+                                    {% set has_q1_sub = q1.id|string in submissions %}
+                                    {% set has_q2_sub = q2 and q2.id|string in submissions %}
+                                    {% set any_sub = has_q1_sub or has_q2_sub %}
+
+                                    <div class="tab-pane fade show active choice-content-pane" id="content-a-{{ loop.index0 }}" role="tabpanel" data-question-id="{{ q1.id }}">
+                                        <div class="task-details">
+                                            <h6 class="fw-bold mb-3 text-primary fs-5">Alternative A Description:</h6>
+                                            {% if q1.question_text %}
+                                            <p class="fs-4 text-dark mb-4" style="white-space: pre-wrap; line-height: 1.4;">{{ q1.question_text }}</p>
+                                            {% endif %}
+                                            
+                                            {% if q1.image_blob %}
+                                            <div class="task-image-wrap mb-4 text-center">
+                                                <img src="{{ url_for('files.get_question_image', question_id=q1.id) }}" 
+                                                     class="img-fluid rounded border shadow-sm" alt="Task A Image" 
+                                                     onclick="openLightbox(this.src)" style="max-height: 400px; cursor: zoom-in;">
+                                            </div>
+                                            {% endif %}
+                                        </div>
+
+                                        <div class="upload-area-wrapper">
+                                            <div class="upload-container text-center py-4 {% if any_sub %}d-none{% endif %}" id="upload-container-{{ q1.id }}">
+                                                <i class="fas fa-cloud-upload-alt fa-3x text-muted mb-3"></i>
+                                                <h5 class="text-muted">Upload your output file for Alternative A</h5>
+                                                <div class="mt-3">
+                                                    <input type="file" class="form-control file-input d-none" id="file-{{ q1.id }}" accept=".pdf,.doc,.docx,.odt,.ods,.odp,.png,.jpg,.jpeg,.xcf,.ggb">
+                                                    <button type="button" class="btn btn-outline-primary upload-trigger" data-target="file-{{ q1.id }}">
+                                                        <i class="fas fa-folder-open"></i> Browse File
+                                                    </button>
+                                                </div>
+                                                <div class="mt-3 file-name-display fw-bold text-success d-none" id="display-{{ q1.id }}"></div>
+                                                <button type="button" class="btn btn-success mt-3 submit-file-btn d-none" data-qid="{{ q1.id }}" data-seid="{{ student_exam_id }}">
+                                                    <i class="fas fa-upload"></i> Confirm Upload
+                                                </button>
+                                            </div>
+                                            <div class="alert alert-success mt-3 {% if not has_q1_sub %}d-none{% endif %} success-msg" id="success-{{ q1.id }}">
+                                                <i class="fas fa-check-circle"></i> File uploaded successfully for Alternative A!
+                                                {% if has_q1_sub %}
+                                                <div class="mt-2 small"><strong>File:</strong> {{ submissions[q1.id|string].file_name }}</div>
+                                                {% endif %}
+                                            </div>
+                                        </div>
+
+                                        <div class="disabled-overlay {% if has_q2_sub %}d-none{% else %}d-none{% endif %}" id="overlay-{{ q1.id }}">
+                                            <div class="text-center p-5">
+                                                <i class="fas fa-lock fa-3x text-muted mb-3"></i>
+                                                <h5>This alternative is disabled</h5>
+                                                <p class="text-muted">You have selected and uploaded work for Alternative B.</p>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <!-- Alternative B -->
+                                    {% if q2 %}
+                                    <div class="tab-pane fade choice-content-pane" id="content-b-{{ loop.index0 }}" role="tabpanel" data-question-id="{{ q2.id }}">
+                                        <div class="task-details">
+                                            <h6 class="fw-bold mb-3 text-primary fs-5">Alternative B Description:</h6>
+                                            {% if q2.question_text %}
+                                            <p class="fs-4 text-dark mb-4" style="white-space: pre-wrap; line-height: 1.4;">{{ q2.question_text }}</p>
+                                            {% endif %}
+                                            
+                                            {% if q2.image_blob %}
+                                            <div class="task-image-wrap mb-4 text-center">
+                                                <img src="{{ url_for('files.get_question_image', question_id=q2.id) }}" 
+                                                     class="img-fluid rounded border shadow-sm" alt="Task B Image" 
+                                                     onclick="openLightbox(this.src)" style="max-height: 400px; cursor: zoom-in;">
+                                            </div>
+                                            {% endif %}
+                                        </div>
+
+                                        <div class="upload-area-wrapper">
+                                            <div class="upload-container text-center py-4 {% if any_sub %}d-none{% endif %}" id="upload-container-{{ q2.id }}">
+                                                <i class="fas fa-cloud-upload-alt fa-3x text-muted mb-3"></i>
+                                                <h5 class="text-muted">Upload your output file for Alternative B</h5>
+                                                <div class="mt-3">
+                                                    <input type="file" class="form-control file-input d-none" id="file-{{ q2.id }}" accept=".pdf,.doc,.docx,.odt,.ods,.odp,.png,.jpg,.jpeg,.xcf,.ggb">
+                                                    <button type="button" class="btn btn-outline-primary upload-trigger" data-target="file-{{ q2.id }}">
+                                                        <i class="fas fa-folder-open"></i> Browse File
+                                                    </button>
+                                                </div>
+                                                <div class="mt-3 file-name-display fw-bold text-success d-none" id="display-{{ q2.id }}"></div>
+                                                <button type="button" class="btn btn-success mt-3 submit-file-btn d-none" data-qid="{{ q2.id }}" data-seid="{{ student_exam_id }}">
+                                                    <i class="fas fa-upload"></i> Confirm Upload
+                                                </button>
+                                            </div>
+                                            <div class="alert alert-success mt-3 {% if not has_q2_sub %}d-none{% endif %} success-msg" id="success-{{ q2.id }}">
+                                                <i class="fas fa-check-circle"></i> File uploaded successfully for Alternative B!
+                                                {% if has_q2_sub %}
+                                                <div class="mt-2 small"><strong>File:</strong> {{ submissions[q2.id|string].file_name }}</div>
+                                                {% endif %}
+                                            </div>
+                                        </div>
+
+                                        <div class="disabled-overlay {% if has_q1_sub %}d-none{% else %}d-none{% endif %}" id="overlay-{{ q2.id }}">
+                                            <div class="text-center p-5">
+                                                <i class="fas fa-lock fa-3x text-muted mb-3"></i>
+                                                <h5>This alternative is disabled</h5>
+                                                <p class="text-muted">You have selected and uploaded work for Alternative A.</p>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    {% endif %}
+                                </div>
+                            </div>
+
+                            <div class="question-card-footer d-flex justify-content-between align-items-center">
+                                <div>
+                                    <button type="button" class="btn btn-outline-primary px-3" onclick="showSlot({{ loop.index0 - 1 }})" {% if loop.first %}disabled{% endif %}>
+                                        <i class="fas fa-chevron-left me-1"></i> Previous
+                                    </button>
+                                </div>
+                                
+                                {% if loop.last %}
+                                <div>
+                                    <button type="button" class="btn btn-danger px-4" id="finishExamBtn">
+                                        <i class="fas fa-flag-checkered me-1"></i> Finish Examination
+                                    </button>
+                                </div>
+                                {% else %}
+                                <div>
+                                    <button type="button" class="btn btn-primary px-4" onclick="showSlot({{ loop.index0 + 1 }})">
+                                        Next <i class="fas fa-chevron-right ms-1"></i>
+                                    </button>
+                                </div>
+                                {% endif %}
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Lightbox Modal -->
+<div id="imageLightbox" onclick="closeLightbox()">
+    <div class="lightbox-content" onclick="event.stopPropagation()">
+        <button type="button" class="lightbox-close" onclick="closeLightbox()">&times;</button>
+        <img id="lightboxImg" src="" alt="Enlarged reference image">
+    </div>
+</div>
+
+<!-- Extra styles -->
+<style>
+    .sidebar, .navbar { display: none !important; }
+    main.col-md-10 { width: 100% !important; max-width: 100% !important; flex: 0 0 100%; margin: 0; padding: 0; }
+    body { background-color: #f0f2f5; overflow: hidden; }
+    
+    .exam-container {
+        height: 100vh;
+        display: flex;
+        flex-direction: column;
+        padding: 0.5rem 1rem;
+        max-width: 100%;
+        margin: 0;
+    }
+    
+    .question-nav-container {
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
+    }
+    
+    .question-nav-scroll {
+        flex-grow: 1;
+        overflow-y: auto;
+        padding: 10px;
+    }
+    
+    .question-area {
+        position: relative;
+        overflow-y: auto;
+        padding-right: 5px;
+    }
+    
+    .question-card-fixed {
+        background: white;
+        border-radius: 10px;
+        box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
+        display: flex;
+        flex-direction: column;
+        height: 100%;
+        border: 1px solid #dee2e6;
+    }
+    
+    .question-card-body {
+        padding: 1.25rem;
+        flex-grow: 1;
+        overflow-y: auto;
+    }
+    
+    .question-card-footer {
+        padding: 1rem 1.5rem;
+        background: #f8f9fa;
+        border-top: 1px solid #dee2e6;
+        border-bottom-left-radius: 10px;
+        border-bottom-right-radius: 10px;
+    }
+    
+    .timer {
+        font-size: 1.5rem;
+        font-weight: 700;
+        color: #dc3545;
+        background: #fff;
+        padding: 5px 15px;
+        border-radius: 50px;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        display: inline-block;
+    }
+    
+    .choice-content-pane {
+        position: relative;
+        min-height: 350px;
+    }
+    
+    .disabled-overlay {
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: rgba(255, 255, 255, 0.85);
+        z-index: 10;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 0.5rem;
+        backdrop-filter: blur(2px);
+    }
+    
+    .task-image-wrap img {
+        max-width: 100%;
+        cursor: pointer;
+        transition: transform 0.2s;
+    }
+    
+    .task-image-wrap img:hover {
+        transform: scale(1.02);
+    }
+    
+    /* Lightbox */
+    #imageLightbox {
+        display: none;
+        position: fixed;
+        z-index: 9999;
+        left: 0;
+        top: 0;
+        width: 100%;
+        height: 100%;
+        background-color: rgba(0,0,0,0.9);
+        align-items: center;
+        justify-content: center;
+    }
+    
+    .lightbox-content {
+        position: relative;
+        max-width: 90%;
+        max-height: 90%;
+    }
+    
+    .lightbox-content img {
+        width: 100%;
+        height: auto;
+        border-radius: 4px;
+    }
+    
+    .lightbox-close {
+        position: absolute;
+        top: -40px;
+        right: 0;
+        color: white;
+        font-size: 30px;
+        background: none;
+        border: none;
+        cursor: pointer;
+    }
+
+    .choice-tab-btn.active {
+        background-color: #198754 !important;
+        color: white !important;
+        border-color: #198754 !important;
+    }
+</style>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+let timeLeft = {{ remaining_seconds }};
+let timerInterval;
+let heartbeatInterval;
+let totalSlots = {{ slots|length }};
+let currentSlotIndex = 0;
+
+function showSlot(index) {
+    if (index < 0 || index >= totalSlots) return;
+    
+    $('.question-card-fixed').addClass('d-none');
+    $(`#slot-card-${index}`).removeClass('d-none');
+    
+    $('.question-nav-btn').removeClass('active btn-primary text-white').addClass('btn-outline-secondary');
+    $(`#nav-btn-${index}`).removeClass('btn-outline-secondary').addClass('active btn-primary text-white');
+    
+    currentSlotIndex = index;
+    updateProgressBar();
+    restoreSlotState(index);
+}
+
+function restoreSlotState(index) {
+    let slotCard = $(`#slot-card-${index}`);
+    let hasQ1Sub = slotCard.find('.success-msg').eq(0).not('.d-none').length > 0;
+    let hasQ2Sub = slotCard.find('.success-msg').eq(1).not('.d-none').length > 0;
+    
+    if (hasQ1Sub) {
+        let q2Id = slotCard.find('.choice-content-pane').eq(1).data('question-id');
+        if (q2Id) $(`#overlay-${q2Id}`).removeClass('d-none');
+        $(`#tab-b-${index}`).addClass('disabled').prop('disabled', true);
+    } else if (hasQ2Sub) {
+        let q1Id = slotCard.find('.choice-content-pane').eq(0).data('question-id');
+        $(`#overlay-${q1Id}`).removeClass('d-none');
+        $(`#tab-a-${index}`).addClass('disabled').prop('disabled', true);
+    }
+}
+
+function updateProgressBar() {
+    let uploadedCount = $('.success-msg:not(.d-none)').length;
+    let progress = totalSlots > 0 ? (uploadedCount / totalSlots) * 100 : 0;
+    $('#progressBar').css('width', progress + '%').attr('aria-valuenow', progress);
+    
+    // Update nav buttons
+    $('.question-card-fixed').each(function() {
+        let idx = $(this).data('slot-index');
+        let hasUpload = $(this).find('.success-msg:not(.d-none)').length > 0;
+        let navBtn = $(`#nav-btn-${idx}`);
+        
+        if (hasUpload) {
+            if (!navBtn.hasClass('active')) {
+                navBtn.removeClass('btn-outline-secondary btn-primary').addClass('btn-success text-white');
+            }
+        }
+    });
+}
+
+function initExamTimer() {
+    timerInterval = setInterval(function() {
+        if (timeLeft > 0) {
+            timeLeft--;
+        }
+        let minutes = Math.floor(timeLeft / 60);
+        let seconds = timeLeft % 60;
+        $('#timeRemaining').text((minutes < 10 ? '0' : '') + minutes + ':' + (seconds < 10 ? '0' : '') + seconds);
+        
+        if (timeLeft <= 300) {
+            $('.timer').addClass('text-danger animate-pulse');
+        }
+        
+        if (timeLeft <= 0) {
+            clearInterval(timerInterval);
+            alert('Time is up! Your practical exam will be submitted automatically.');
+            $('#finishExamForm').submit();
+        }
+    }, 1000);
+
+    heartbeatInterval = setInterval(function() {
+        if (document.hidden) return;
+        
+        fetch('/student/api/heartbeat', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ student_exam_id: {{ student_exam_id }} })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success && data.remaining_seconds !== undefined) {
+                timeLeft = data.remaining_seconds;
+                if (timeLeft <= 0) {
+                    clearInterval(timerInterval);
+                    alert('Time is up! Your practical exam will be submitted automatically.');
+                    $('#finishExamForm').submit();
+                }
+            }
+        })
+        .catch(error => console.error('Heartbeat error:', error));
+    }, 5000);
+}
+
+// Lightbox Functions
+function openLightbox(src) {
+    const lightbox = document.getElementById('imageLightbox');
+    const img = document.getElementById('lightboxImg');
+    img.src = src;
+    lightbox.style.display = 'flex';
+}
+
+function closeLightbox() {
+    document.getElementById('imageLightbox').style.display = 'none';
+}
+
+$(document).ready(function() {
+    initExamTimer();
+    showSlot(0);
+    updateProgressBar();
+    
+    // Restore states for all slots initially
+    for(let i=0; i<totalSlots; i++) {
+        restoreSlotState(i);
+    }
+    
+    // Trigger hidden file input
+    $(document).on('click', '.upload-trigger', function() {
+        let targetId = $(this).data('target');
+        $('#' + targetId).click();
+    });
+    
+    // Show file name after selection
+    $(document).on('change', '.file-input', function() {
+        let file = this.files[0];
+        let qid = $(this).attr('id').split('-')[1];
+        
+        if (file) {
+            $(`#display-${qid}`).text(file.name).removeClass('d-none');
+            $(this).siblings('.upload-trigger').text('Change File');
+            $(this).closest('.upload-container').find('.submit-file-btn').removeClass('d-none');
+        }
+    });
+    
+    // AJAX Upload logic
+    $(document).on('click', '.submit-file-btn', function() {
+        let btn = $(this);
+        let qid = btn.data('qid');
+        let seid = btn.data('seid');
+        let fileInputId = `file-${qid}`;
+        let fileInput = $('#' + fileInputId)[0];
+        
+        if (fileInput.files.length === 0) {
+            alert('Please select a file first.');
+            return;
+        }
+        
+        let formData = new FormData();
+        formData.append('practical_file', fileInput.files[0]);
+        formData.append('student_exam_id', seid);
+        formData.append('question_id', qid);
+        
+        btn.prop('disabled', true).html('<i class="fas fa-spinner fa-spin"></i> Uploading...');
+        
+        $.ajax({
+            url: '{{ url_for("student.upload_practical_work") }}',
+            type: 'POST',
+            data: formData,
+            processData: false,
+            contentType: false,
+            success: function(response) {
+                if(response.success) {
+                    $(`#upload-container-${qid}`).slideUp();
+                    $(`#success-${qid}`).removeClass('d-none');
+                    
+                    // Mark as uploaded and disable other choice in the same slot
+                    let slotIdx = btn.closest('.question-card-fixed').data('slot-index');
+                    restoreSlotState(slotIdx);
+                    updateProgressBar();
+                } else {
+                    alert('Upload failed: ' + response.message);
+                    btn.prop('disabled', false).html('<i class="fas fa-upload"></i> Confirm Upload');
+                }
+            },
+            error: function() {
+                alert('An error occurred during upload.');
+                btn.prop('disabled', false).html('<i class="fas fa-upload"></i> Confirm Upload');
+            }
+        });
+    });
+    
+    // Finish exam logic
+    $('#finishExamBtn').click(function() {
+        let uploadedCount = $('.success-msg:not(.d-none)').length;
+        
+        if (uploadedCount < totalSlots) {
+            if (!confirm(`You have only uploaded files for ${uploadedCount} out of ${totalSlots} tasks. Are you sure you want to finish the exam?`)) {
+                return;
+            }
+        } else {
+            if (!confirm('Are you sure you want to finish the practical examination? You cannot undo this action.')) {
+                return;
+            }
+        }
+        
+        $('#finishExamForm').submit();
+    });
+});
+</script>
+{% endblock %}

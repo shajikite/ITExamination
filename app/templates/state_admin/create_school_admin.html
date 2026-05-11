@@ -1,0 +1,364 @@
+{% extends "base.html" %}
+
+{% block title %}Manage School Admins - State Admin{% endblock %}
+
+{% block extra_css %}
+<style>
+    .status-badge { font-size: 0.75rem; border-radius: 20px; padding: 0.35rem 0.75rem; }
+    .action-btn-group .btn { padding: 0.25rem 0.5rem; font-size: 0.85rem; border-radius: 6px; transition: all 0.2s; }
+    .action-btn-group .btn:hover { transform: translateY(-1px); box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+    .table td, .table th { vertical-align: middle; }
+    .card-header-gradient { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: #fff; border-bottom: none; }
+    .card-header-gradient h5 { margin: 0; font-weight: 600; }
+    .modal-header { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: #fff; }
+    .modal-header .btn-close { filter: invert(1); }
+    .stats-card { border: none; border-left: 4px solid #667eea; transition: all 0.3s; }
+    .stats-card:hover { transform: translateY(-5px); box-shadow: 0 5px 15px rgba(0,0,0,0.1); }
+    .search-input { border-radius: 20px; padding-left: 2.5rem; }
+    .search-container { position: relative; }
+    .search-container i { position: absolute; left: 1rem; top: 50%; transform: translateY(-50%); color: #6c757d; }
+    .school-name-badge { background-color: #f8f9fa; border: 1px solid #dee2e6; color: #495057; font-weight: 500; }
+</style>
+{% endblock %}
+
+{% block sidebar %}
+<ul class="nav flex-column pt-3">
+    <li class="nav-item"><a class="nav-link" href="{{ url_for('state_admin.dashboard') }}"><i class="fas fa-home"></i> Dashboard</a></li>
+    <li class="nav-item"><a class="nav-link" href="{{ url_for('state_admin.manage_schools') }}"><i class="fas fa-school"></i> Manage Schools</a></li>
+    <li class="nav-item"><a class="nav-link active" href="{{ url_for('state_admin.create_school_admin') }}"><i class="fas fa-user-shield"></i> School Admins</a></li>
+    <li class="nav-item"><a class="nav-link" href="{{ url_for('state_admin.create_question_setter') }}"><i class="fas fa-chalkboard-teacher"></i> Question Setters</a></li>
+    <li class="nav-item"><a class="nav-link" href="{{ url_for('state_admin.manage_students') }}"><i class="fas fa-user-graduate"></i> Students</a></li>
+    <li class="nav-item"><a class="nav-link" href="{{ url_for('state_admin.create_examination') }}"><i class="fas fa-file-alt"></i> Examinations</a></li>
+    <li class="nav-item"><a class="nav-link" href="{{ url_for('state_admin.assign_students_exam') }}"><i class="fas fa-clipboard-check"></i> Assign Exams</a></li>
+    <li class="nav-item"><a class="nav-link" href="{{ url_for('state_admin.mark_list') }}"><i class="fas fa-list-ol"></i> Mark List</a></li>
+    <li class="nav-item"><a class="nav-link" href="{{ url_for('state_admin.reports') }}"><i class="fas fa-chart-bar"></i> Reports</a></li>
+</ul>
+{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
+    <h1 class="h2"><i class="fas fa-user-shield text-primary me-2"></i>Manage School Admins</h1>
+    <div class="btn-toolbar mb-2 mb-md-0">
+        <span class="badge bg-primary fs-6 py-2 px-3 shadow-sm">{{ stats.total }} Total Admins</span>
+    </div>
+</div>
+
+<!-- Stats Row -->
+<div class="row mb-4">
+    <div class="col-md-3">
+        <div class="card shadow-sm stats-card h-100" style="border-left-color: #0d6efd;">
+            <div class="card-body">
+                <h6 class="text-muted mb-1 small uppercase fw-bold">Active Admins</h6>
+                <h3 class="mb-0">{{ stats.active }}</h3>
+                <div class="mt-2">
+                    <span class="text-success small"><i class="fas fa-check-circle"></i> {{ (stats.active/stats.total*100)|round(1) if stats.total > 0 else 0 }}% enabled</span>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card shadow-sm stats-card h-100" style="border-left-color: #198754;">
+            <div class="card-body">
+                <h6 class="text-muted mb-1 small uppercase fw-bold">Total Schools</h6>
+                <h3 class="mb-0">{{ stats.schools_count }}</h3>
+                <div class="mt-2">
+                    <span class="text-primary small"><i class="fas fa-school"></i> Registered Schools</span>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card shadow-sm stats-card h-100" style="border-left-color: #ffc107;">
+            <div class="card-body">
+                <h6 class="text-muted mb-1 small uppercase fw-bold">Schools with Admins</h6>
+                <h3 class="mb-0">{{ stats.schools_with_admins }}</h3>
+                <div class="mt-2">
+                    <span class="text-warning small"><i class="fas fa-user-check"></i> {{ stats.schools_with_admins }}/{{ stats.schools_count }} schools covered</span>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card shadow-sm stats-card h-100" style="border-left-color: #dc3545;">
+            <div class="card-body">
+                <h6 class="text-muted mb-1 small uppercase fw-bold">Missing Admins</h6>
+                <h3 class="mb-0 text-danger">{{ stats.schools_count - stats.schools_with_admins }}</h3>
+                <div class="mt-2">
+                    <span class="text-danger small"><i class="fas fa-exclamation-triangle"></i> Schools needing attention</span>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row">
+    <!-- Forms Column -->
+    <div class="col-md-4 mb-4">
+        <!-- Create Form -->
+        <div class="card shadow-sm mb-4 border-0">
+            <div class="card-header card-header-gradient">
+                <h5 class="mb-0"><i class="fas fa-plus-circle me-1"></i> Create Admin</h5>
+            </div>
+            <div class="card-body">
+                <form method="POST" action="{{ url_for('state_admin.create_school_admin') }}">
+                    <div class="mb-3">
+                        <label class="form-label fw-bold small text-uppercase text-muted">Select School <span class="text-danger">*</span></label>
+                        <select name="school_id" class="form-select border-0 bg-light" required>
+                            <option value="">Choose School...</option>
+                            {% for school in schools %}
+                            <option value="{{ school.id }}">{{ school.school_name }} ({{ school.school_code }})</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label fw-bold small text-uppercase text-muted">Full Name <span class="text-danger">*</span></label>
+                        <input type="text" name="full_name" class="form-control border-0 bg-light" placeholder="e.g. John Doe" required>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label fw-bold small text-uppercase text-muted">Username <span class="text-danger">*</span></label>
+                            <input type="text" name="username" class="form-control border-0 bg-light" placeholder="jdoe_admin" required>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label fw-bold small text-uppercase text-muted">Password <span class="text-danger">*</span></label>
+                            <input type="password" name="password" class="form-control border-0 bg-light" placeholder="••••••••" required>
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label fw-bold small text-uppercase text-muted">Email Address</label>
+                        <input type="email" name="email" class="form-control border-0 bg-light" placeholder="admin@school.com">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label fw-bold small text-uppercase text-muted">Phone Number</label>
+                        <input type="text" name="phone" class="form-control border-0 bg-light" placeholder="+91 00000 00000">
+                    </div>
+                    <button type="submit" class="btn btn-primary w-100 shadow-sm mt-2">
+                        <i class="fas fa-user-plus me-1"></i> Create School Admin
+                    </button>
+                </form>
+            </div>
+        </div>
+
+        <!-- Bulk Upload -->
+        <div class="card shadow-sm border-0">
+            <div class="card-header bg-white">
+                <h5 class="mb-0 text-info fw-bold"><i class="fas fa-file-csv me-1"></i> Bulk Import</h5>
+            </div>
+            <div class="card-body">
+                <p class="small text-muted mb-3">
+                    Upload a CSV with: <code>school_code, username, password, full_name, email, phone</code>
+                </p>
+                <form action="{{ url_for('state_admin.bulk_upload_school_admins') }}" method="POST" enctype="multipart/form-data">
+                    <div class="mb-3">
+                        <input class="form-control form-control-sm" type="file" name="csv_file" accept=".csv" required>
+                    </div>
+                    <button type="submit" class="btn btn-info btn-sm w-100 text-white shadow-sm">
+                        <i class="fas fa-upload me-1"></i> Start Upload
+                    </button>
+                </form>
+                <div class="mt-3 text-center">
+                    <a href="#" class="text-decoration-none small" onclick="downloadAdminSample()">
+                        <i class="fas fa-download me-1"></i> Download Template
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Admins Table -->
+    <div class="col-md-8 mb-4">
+        <div class="card shadow-sm border-0">
+            <div class="card-header bg-white d-flex justify-content-between align-items-center py-3">
+                <h5 class="mb-0 fw-bold text-dark"><i class="fas fa-list-ul me-2 text-primary"></i>Admin Directory</h5>
+                <div class="search-container">
+                    <i class="fas fa-search"></i>
+                    <input type="text" id="adminSearch" class="form-control form-control-sm search-input" placeholder="Search admins or schools...">
+                </div>
+            </div>
+            <div class="card-body p-0">
+                <div class="table-responsive">
+                    <table class="table table-hover mb-0" id="adminTable">
+                        <thead class="table-light">
+                            <tr>
+                                <th>Admin Profile</th>
+                                <th>Associated School</th>
+                                <th>Contact Details</th>
+                                <th>Status</th>
+                                <th class="text-end px-4">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for admin in admins %}
+                            <tr class="{{ 'table-secondary opacity-75' if not admin.is_active }}">
+                                <td>
+                                    <div class="d-flex align-items-center">
+                                        <div class="rounded-circle bg-light d-flex align-items-center justify-content-center me-3 shadow-sm" style="width: 40px; height: 40px; border: 2px solid #fff;">
+                                            <i class="fas fa-user text-primary"></i>
+                                        </div>
+                                        <div>
+                                            <div class="fw-bold text-dark">{{ admin.full_name }}</div>
+                                            <div class="text-muted small">@{{ admin.username }}</div>
+                                        </div>
+                                    </div>
+                                </td>
+                                <td>
+                                    <span class="badge school-name-badge py-2 px-3">
+                                        <i class="fas fa-school me-1 text-primary"></i> {{ admin.school_name }}
+                                    </span>
+                                </td>
+                                <td>
+                                    <div class="small mb-1"><i class="fas fa-envelope text-muted me-2"></i>{{ admin.email or 'N/A' }}</div>
+                                    <div class="small"><i class="fas fa-phone text-muted me-2"></i>{{ admin.phone or 'N/A' }}</div>
+                                </td>
+                                <td>
+                                    {% if admin.is_active %}
+                                    <span class="badge bg-success-subtle text-success border border-success status-badge">
+                                        <i class="fas fa-check-circle me-1"></i>Active
+                                    </span>
+                                    {% else %}
+                                    <span class="badge bg-danger-subtle text-danger border border-danger status-badge">
+                                        <i class="fas fa-times-circle me-1"></i>Disabled
+                                    </span>
+                                    {% endif %}
+                                </td>
+                                <td class="text-end px-4">
+                                    <div class="action-btn-group">
+                                        <button class="btn btn-light btn-sm text-primary border shadow-sm"
+                                            data-bs-toggle="modal" data-bs-target="#editUserModal"
+                                            data-id="{{ admin.id }}"
+                                            data-name="{{ admin.full_name }}"
+                                            data-email="{{ admin.email or '' }}"
+                                            data-phone="{{ admin.phone or '' }}"
+                                            data-school="{{ admin.school_id or '' }}"
+                                            title="Edit Profile">
+                                            <i class="fas fa-edit"></i>
+                                        </button>
+                                        <form action="{{ url_for('state_admin.toggle_user', user_id=admin.id) }}" method="POST" class="d-inline">
+                                            <button type="submit" class="btn btn-light btn-sm {{ 'text-warning' if admin.is_active else 'text-success' }} border shadow-sm"
+                                                title="{{ 'Deactivate' if admin.is_active else 'Activate' }}"
+                                                onclick="return confirm('Change status for {{ admin.full_name }}?')">
+                                                <i class="fas {{ 'fa-user-slash' if admin.is_active else 'fa-user-check' }}"></i>
+                                            </button>
+                                        </form>
+                                        <form action="{{ url_for('state_admin.delete_user', user_id=admin.id) }}" method="POST" class="d-inline">
+                                            <button type="submit" class="btn btn-light btn-sm text-danger border shadow-sm"
+                                                title="Delete Admin"
+                                                onclick="return confirm('Permanently delete {{ admin.full_name }}?')">
+                                                <i class="fas fa-trash"></i>
+                                            </button>
+                                        </form>
+                                    </div>
+                                </td>
+                            </tr>
+                            {% else %}
+                            <tr>
+                                <td colspan="5" class="text-center py-5 text-muted">
+                                    <i class="fas fa-user-shield fa-3x mb-3 d-block opacity-25"></i>
+                                    <h5 class="fw-bold">No School Admins Found</h5>
+                                    <p>Start by creating a new admin account using the form on the left.</p>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Edit User Modal -->
+<div class="modal fade" id="editUserModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content border-0 shadow">
+            <div class="modal-header border-0">
+                <h5 class="modal-title"><i class="fas fa-user-edit me-2"></i>Edit Admin Profile</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form id="editUserForm" method="POST">
+                <div class="modal-body p-4">
+                    <div class="mb-3">
+                        <label class="form-label fw-bold small text-uppercase text-muted">Full Name <span class="text-danger">*</span></label>
+                        <input type="text" name="full_name" id="editUserName" class="form-control border-0 bg-light py-2" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label fw-bold small text-uppercase text-muted">Associated School</label>
+                        <select name="school_id" id="editUserSchool" class="form-select border-0 bg-light py-2">
+                            <option value="">— No School Assigned —</option>
+                            {% for school in schools %}
+                            <option value="{{ school.id }}">{{ school.school_name }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label fw-bold small text-uppercase text-muted">Email Address</label>
+                            <input type="email" name="email" id="editUserEmail" class="form-control border-0 bg-light py-2">
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label fw-bold small text-uppercase text-muted">Phone Number</label>
+                            <input type="text" name="phone" id="editUserPhone" class="form-control border-0 bg-light py-2">
+                        </div>
+                    </div>
+                    <div class="mb-0 pt-2 border-top">
+                        <label class="form-label fw-bold small text-uppercase text-muted">Security Update</label>
+                        <div class="input-group">
+                            <span class="input-group-text border-0 bg-light"><i class="fas fa-lock small"></i></span>
+                            <input type="password" name="new_password" class="form-control border-0 bg-light py-2" placeholder="Enter new password to change">
+                        </div>
+                        <div class="form-text small">Leave blank to keep the current password.</div>
+                    </div>
+                </div>
+                <div class="modal-footer border-0 p-4 pt-0">
+                    <button type="button" class="btn btn-light px-4" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-primary px-4 shadow-sm"><i class="fas fa-save me-1"></i> Update Admin</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    // Handle Edit Modal Data
+    const editUserModal = document.getElementById('editUserModal');
+    editUserModal.addEventListener('show.bs.modal', function (e) {
+        const btn = e.relatedTarget;
+        document.getElementById('editUserName').value  = btn.dataset.name;
+        document.getElementById('editUserEmail').value = btn.dataset.email;
+        document.getElementById('editUserPhone').value = btn.dataset.phone;
+        const schoolSel = document.getElementById('editUserSchool');
+        if (schoolSel) schoolSel.value = btn.dataset.school || '';
+        document.getElementById('editUserForm').action = '/state-admin/edit-user/' + btn.dataset.id;
+    });
+
+    // Real-time Table Search
+    document.getElementById('adminSearch').addEventListener('keyup', function() {
+        const value = this.value.toLowerCase();
+        const rows = document.querySelectorAll('#adminTable tbody tr');
+        
+        rows.forEach(row => {
+            if (row.innerText.toLowerCase().includes(value)) {
+                row.style.display = '';
+            } else {
+                row.style.display = 'none';
+            }
+        });
+    });
+
+    // CSV Sample Download
+    function downloadAdminSample() {
+        const csvContent = "school_code,username,password,full_name,email,phone\nSCH101,admin_sch101,password123,Jane Doe,admin@example.edu,0471999888";
+        const blob = new Blob([csvContent], { type: 'text/csv' });
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.setAttribute('hidden', '');
+        a.setAttribute('href', url);
+        a.setAttribute('download', 'school_admin_import_template.csv');
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+    }
+</script>
+{% endblock %}

@@ -1,0 +1,302 @@
+{% extends "base.html" %}
+
+{% block title %}Manage Students - State Admin{% endblock %}
+
+{% block extra_css %}
+<style>
+.status-badge { font-size: 0.75rem; }
+.action-btn-group .btn { padding: 0.25rem 0.5rem; font-size: 0.78rem; }
+.table td, .table th { vertical-align: middle; }
+.modal-header { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: #fff; }
+.modal-header .btn-close { filter: invert(1); }
+</style>
+{% endblock %}
+
+{% block sidebar %}
+<ul class="nav flex-column pt-3">
+    <li class="nav-item"><a class="nav-link" href="{{ url_for('state_admin.dashboard') }}"><i class="fas fa-home"></i> Dashboard</a></li>
+    <li class="nav-item"><a class="nav-link" href="{{ url_for('state_admin.manage_schools') }}"><i class="fas fa-school"></i> Manage Schools</a></li>
+    <li class="nav-item"><a class="nav-link" href="{{ url_for('state_admin.create_school_admin') }}"><i class="fas fa-user-shield"></i> School Admins</a></li>
+    <li class="nav-item"><a class="nav-link" href="{{ url_for('state_admin.create_question_setter') }}"><i class="fas fa-chalkboard-teacher"></i> Question Setters</a></li>
+    <li class="nav-item"><a class="nav-link active" href="{{ url_for('state_admin.manage_students') }}"><i class="fas fa-user-graduate"></i> Students</a></li>
+    <li class="nav-item"><a class="nav-link" href="{{ url_for('state_admin.create_examination') }}"><i class="fas fa-file-alt"></i> Examinations</a></li>
+    <li class="nav-item"><a class="nav-link" href="{{ url_for('state_admin.assign_students_exam') }}"><i class="fas fa-clipboard-check"></i> Assign Exams</a></li>
+    <li class="nav-item"><a class="nav-link" href="{{ url_for('state_admin.mark_list') }}"><i class="fas fa-list-ol"></i> Mark List</a></li>
+    <li class="nav-item"><a class="nav-link" href="{{ url_for('state_admin.reports') }}"><i class="fas fa-chart-bar"></i> Reports</a></li>
+</ul>
+{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
+    <h1 class="h2"><i class="fas fa-user-graduate text-primary me-2"></i>Manage Students</h1>
+    <span class="badge bg-secondary fs-6">{{ students|length }} student(s)</span>
+</div>
+
+<div class="row">
+    <!-- Forms Column -->
+    <div class="col-md-4 mb-4">
+        <!-- Add Student -->
+        <div class="card shadow-sm mb-4">
+            <div class="card-header bg-white">
+                <h5 class="mb-0"><i class="fas fa-plus-circle text-success me-1"></i> Add Student</h5>
+            </div>
+            <div class="card-body">
+                <form method="POST">
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold">School <span class="text-danger">*</span></label>
+                        <select name="school_id" class="form-select" required>
+                            <option value="">Select School...</option>
+                            {% for school in schools %}
+                            <option value="{{ school.id }}">{{ school.school_name }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold">Class <span class="text-danger">*</span></label>
+                        <select name="class_id" class="form-select" required>
+                            <option value="">Select Class...</option>
+                            {% for cls in classes %}
+                            <option value="{{ cls.id }}">{{ cls.class_name }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold">Full Name <span class="text-danger">*</span></label>
+                        <input type="text" name="full_name" class="form-control" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold">Username / Register No. <span class="text-danger">*</span></label>
+                        <input type="text" name="username" class="form-control" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold">Password <span class="text-danger">*</span></label>
+                        <input type="password" name="password" class="form-control" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold">Email</label>
+                        <input type="email" name="email" class="form-control">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold">Medium <span class="text-danger">*</span></label>
+                        <select name="medium" class="form-select" required>
+                            <option value="English">English</option>
+                            <option value="Malayalam">Malayalam</option>
+                            <option value="Kannada">Kannada</option>
+                            <option value="Tamil">Tamil</option>
+                        </select>
+                    </div>
+                    <button type="submit" class="btn btn-primary w-100"><i class="fas fa-save me-1"></i> Add Student</button>
+                </form>
+            </div>
+        </div>
+
+        <!-- Bulk Upload -->
+        <div class="card shadow-sm">
+            <div class="card-header bg-white">
+                <h5 class="mb-0"><i class="fas fa-file-csv text-info me-1"></i> Bulk Upload (CSV)</h5>
+            </div>
+            <div class="card-body">
+                <p class="small text-muted mb-3">
+                    Columns: <code>school_code, register_number, full_name, email, phone, password, class_name, medium</code>
+                    <br><em>password</em> is optional — defaults to register number.
+                    <br><em>class_name</em> is optional — matches a class in the system.
+                </p>
+                <form action="{{ url_for('state_admin.bulk_upload_students') }}" method="POST" enctype="multipart/form-data">
+                    <div class="mb-3">
+                        <input class="form-control" type="file" name="csv_file" accept=".csv" required>
+                    </div>
+                    <button type="submit" class="btn btn-info w-100 text-white"><i class="fas fa-upload me-1"></i> Upload CSV</button>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Students Table -->
+    <div class="col-md-8 mb-4">
+        <div class="card shadow-sm">
+            <div class="card-header bg-white d-flex justify-content-between align-items-center">
+                <h5 class="mb-0"><i class="fas fa-list me-1"></i> Registered Students</h5>
+                <!-- Filter by school -->
+                <select id="schoolFilter" class="form-select form-select-sm w-auto">
+                    <option value="">All Schools</option>
+                    {% for school in schools %}
+                    <option value="{{ school.school_name }}">{{ school.school_name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="card-body p-0">
+                <div class="table-responsive">
+                    <table class="table table-hover mb-0" id="studentsTable">
+                        <thead class="table-light">
+                            <tr>
+                                <th>Name</th>
+                                <th>Username</th>
+                                <th>School</th>
+                                <th>Class</th>
+                                <th>Medium</th>
+                                <th>Status</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for student in students %}
+                            <tr class="{{ 'table-secondary opacity-75' if not student.is_active }}"
+                                data-school="{{ student.school_name }}">
+                                <td><strong>{{ student.full_name }}</strong></td>
+                                <td><code>{{ student.username }}</code></td>
+                                <td>{{ student.school_name }}</td>
+                                <td>
+                                    {% if student.class_name %}
+                                    <span class="badge bg-info text-dark">{{ student.class_name }}</span>
+                                    {% else %}
+                                    <span class="text-muted small">—</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    <span class="badge bg-light text-dark border">{{ student.medium or 'English' }}</span>
+                                </td>
+                                <td>
+                                    {% if student.is_active %}
+                                    <span class="badge bg-success status-badge">Active</span>
+                                    {% else %}
+                                    <span class="badge bg-danger status-badge">Inactive</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    <div class="action-btn-group d-flex flex-wrap gap-1">
+                                        <button class="btn btn-sm btn-outline-primary"
+                                            data-bs-toggle="modal" data-bs-target="#editStudentModal"
+                                            data-id="{{ student.id }}"
+                                            data-name="{{ student.full_name }}"
+                                            data-email="{{ student.email or '' }}"
+                                            data-phone="{{ student.phone or '' }}"
+                                            data-school="{{ student.school_id or '' }}"
+                                            data-class="{{ student.class_id or '' }}"
+                                            data-medium="{{ student.medium or 'English' }}"
+                                            title="Edit">
+                                            <i class="fas fa-edit"></i>
+                                        </button>
+                                        <form action="{{ url_for('state_admin.toggle_user', user_id=student.id) }}" method="POST" class="d-inline">
+                                            <button type="submit" class="btn btn-sm {{ 'btn-outline-warning' if student.is_active else 'btn-outline-success' }}"
+                                                title="{{ 'Deactivate' if student.is_active else 'Activate' }}"
+                                                onclick="return confirm('{{ 'Deactivate' if student.is_active else 'Activate' }} student {{ student.full_name }}?')">
+                                                <i class="fas {{ 'fa-user-slash' if student.is_active else 'fa-user-check' }}"></i>
+                                            </button>
+                                        </form>
+                                        <form action="{{ url_for('state_admin.delete_user', user_id=student.id) }}" method="POST" class="d-inline">
+                                            <button type="submit" class="btn btn-sm btn-outline-danger"
+                                                title="Delete"
+                                                onclick="return confirm('Permanently delete student {{ student.full_name }}?')">
+                                                <i class="fas fa-trash"></i>
+                                            </button>
+                                        </form>
+                                    </div>
+                                </td>
+                            </tr>
+                            {% else %}
+                            <tr>
+                                <td colspan="6" class="text-center py-4 text-muted">
+                                    <i class="fas fa-user-graduate fa-2x mb-2 d-block"></i> No students found.
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Edit Student Modal -->
+<div class="modal fade" id="editStudentModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title"><i class="fas fa-user-edit me-2"></i>Edit Student</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form id="editStudentForm" method="POST">
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold">Full Name <span class="text-danger">*</span></label>
+                        <input type="text" name="full_name" id="editStudentName" class="form-control" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold">School</label>
+                        <select name="school_id" id="editStudentSchool" class="form-select">
+                            <option value="">— No School —</option>
+                            {% for school in schools %}
+                            <option value="{{ school.id }}">{{ school.school_name }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold">Class</label>
+                        <select name="class_id" id="editStudentClass" class="form-select">
+                            <option value="">— No Class —</option>
+                            {% for cls in classes %}
+                            <option value="{{ cls.id }}">{{ cls.class_name }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold">Email</label>
+                        <input type="email" name="email" id="editStudentEmail" class="form-control">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold">Phone</label>
+                        <input type="text" name="phone" id="editStudentPhone" class="form-control">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold">Medium <span class="text-danger">*</span></label>
+                        <select name="medium" id="editStudentMedium" class="form-select" required>
+                            <option value="English">English</option>
+                            <option value="Malayalam">Malayalam</option>
+                            <option value="Kannada">Kannada</option>
+                            <option value="Tamil">Tamil</option>
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold">New Password <small class="text-muted">(leave blank to keep current)</small></label>
+                        <input type="password" name="new_password" class="form-control">
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-primary"><i class="fas fa-save me-1"></i> Save Changes</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// Edit modal pre-fill
+const editStudentModal = document.getElementById('editStudentModal');
+editStudentModal.addEventListener('show.bs.modal', function (e) {
+    const btn = e.relatedTarget;
+    document.getElementById('editStudentName').value   = btn.dataset.name;
+    document.getElementById('editStudentEmail').value  = btn.dataset.email;
+    document.getElementById('editStudentPhone').value  = btn.dataset.phone;
+    const schoolSel = document.getElementById('editStudentSchool');
+    if (schoolSel) schoolSel.value = btn.dataset.school || '';
+    const classSel = document.getElementById('editStudentClass');
+    if (classSel) classSel.value = btn.dataset.class || '';
+    const mediumSel = document.getElementById('editStudentMedium');
+    if (mediumSel) mediumSel.value = btn.dataset.medium || 'English';
+    document.getElementById('editStudentForm').action  = '/state-admin/edit-user/' + btn.dataset.id;
+});
+
+// School filter
+document.getElementById('schoolFilter').addEventListener('change', function () {
+    const filter = this.value.toLowerCase();
+    document.querySelectorAll('#studentsTable tbody tr').forEach(row => {
+        const school = (row.dataset.school || '').toLowerCase();
+        row.style.display = (!filter || school === filter) ? '' : 'none';
+    });
+});
+</script>
+{% endblock %}

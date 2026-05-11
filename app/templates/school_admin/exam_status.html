@@ -1,0 +1,98 @@
+{% extends "base.html" %}
+
+{% block title %}Live Exam Status - School Admin{% endblock %}
+
+{% block sidebar %}
+<ul class="nav flex-column pt-3">
+    <li class="nav-item">
+        <a class="nav-link" href="{{ url_for('school_admin.dashboard') }}">
+            <i class="fas fa-home"></i> Dashboard
+        </a>
+    </li>
+    <li class="nav-item">
+        <a class="nav-link" href="{{ url_for('school_admin.create_invigilator') }}">
+            <i class="fas fa-user-tie"></i> Invigilators
+        </a>
+    </li>
+    <li class="nav-item">
+        <a class="nav-link" href="{{ url_for('school_admin.view_students') }}">
+            <i class="fas fa-users"></i> Students
+        </a>
+    </li>
+    <li class="nav-item">
+        <a class="nav-link active" href="{{ url_for('school_admin.exam_status') }}">
+            <i class="fas fa-desktop"></i> Live Exam Status
+        </a>
+    </li>
+    <li class="nav-item">
+        <a class="nav-link" href="{{ url_for('school_admin.prepare_marklist') }}">
+            <i class="fas fa-file-signature"></i> Prepare Marklist
+        </a>
+    </li>
+    <li class="nav-item">
+        <a class="nav-link" href="{{ url_for('school_admin.view_marklist') }}">
+            <i class="fas fa-list-ol"></i> View Marklists
+        </a>
+    </li>
+</ul>
+{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
+    <h1 class="h2">Live Exam Status</h1>
+    <button class="btn btn-outline-primary" onclick="location.reload();"><i class="fas fa-sync-alt"></i> Refresh</button>
+</div>
+
+<div class="card shadow-sm">
+    <div class="card-body p-0">
+        <div class="table-responsive">
+            <table class="table table-hover mb-0 align-middle">
+                <thead class="table-light">
+                    <tr>
+                        <th>Examination</th>
+                        <th>Student Name</th>
+                        <th>Theory Status</th>
+                        <th>Practical Status</th>
+                        <th>Global Exam Status</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for row in status_data %}
+                    <tr>
+                        <td><strong>{{ row.exam_name }}</strong></td>
+                        <td>{{ row.student_name }}</td>
+                        <td>
+                            {% if row.theory_status == 'completed' %}
+                            <span class="badge bg-success"><i class="fas fa-check-circle"></i> Completed</span>
+                            {% elif row.theory_status == 'in_progress' %}
+                            <span class="badge bg-primary"><i class="fas fa-spinner fa-spin"></i> In Progress</span>
+                            <br><small class="text-muted">Started: {{ row.theory_start_time.strftime('%H:%M') if row.theory_start_time else '' }}</small>
+                            {% else %}
+                            <span class="badge bg-secondary">Pending</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if row.practical_status == 'completed' %}
+                            <span class="badge bg-success"><i class="fas fa-check-circle"></i> Completed</span>
+                            {% elif row.practical_status == 'in_progress' %}
+                            <span class="badge bg-primary"><i class="fas fa-spinner fa-spin"></i> In Progress</span>
+                            <br><small class="text-muted">Started: {{ row.practical_start_time.strftime('%H:%M') if row.practical_start_time else '' }}</small>
+                            {% else %}
+                            <span class="badge bg-secondary">Pending</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            <span class="badge {% if row.exam_status == 'ongoing' %}bg-warning{% elif row.exam_status == 'completed' %}bg-success{% else %}bg-secondary{% endif %}">{{ row.exam_status|title }}</span>
+                        </td>
+                    </tr>
+                    {% else %}
+                    <tr>
+                        <td colspan="5" class="text-center py-4 text-muted">No students assigned to exams yet.</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}

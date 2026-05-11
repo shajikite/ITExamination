@@ -1,0 +1,587 @@
+{% extends "base.html" %}
+
+{% block title %}Theory Examination - {{ exam.exam_name }}{% endblock %}
+
+{% block content %}
+<div class="lockdown-screen" id="lockdownScreen">
+    <div class="exam-container">
+        <!-- Top Section: Header and Timer -->
+        <div class="row align-items-center mb-3">
+            <div class="col-md-8">
+                <h3 class="mb-1">{{ exam.exam_name }} - 
+                    {% if current_phase == 1 %}MCQ Section{% else %}Short Answer Section{% endif %}
+                </h3>
+                <p class="text-muted mb-0 small">Class: {{ exam.class_name }} | Subject: {{ exam.subject_name }}</p>
+            </div>
+            <div class="col-md-4 text-end">
+                <div class="timer" id="timer">
+                    <i class="fas fa-clock me-2"></i> 
+                    <span id="timeRemaining">{{ '%02d:%02d' | format(remaining_seconds // 60, remaining_seconds % 60) }}</span>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Progress Bar -->
+        <div class="progress mb-4" style="height: 8px;">
+            <div class="progress-bar progress-bar-striped progress-bar-animated bg-primary" id="progressBar" style="width: 0%"></div>
+        </div>
+        
+        <!-- Middle Section: Navigation and Questions -->
+        <div class="row flex-grow-1 overflow-hidden">
+            <!-- Left Sidebar: Question Navigation -->
+            <div class="col-md-3 h-100">
+                <div class="question-nav-container card shadow-sm h-100">
+                    <div class="card-header bg-white py-3">
+                        <h6 class="mb-0 fw-bold"><i class="fas fa-list-ol me-2"></i>Questions Panel</h6>
+                    </div>
+                    <div class="question-nav-scroll">
+                        <div class="d-flex flex-wrap gap-2 justify-content-center py-2" id="questionNavPanel">
+                            {% for question in questions %}
+                            <button type="button" class="btn btn-outline-secondary question-nav-btn" onclick="showQuestion({{ loop.index0 }})" id="nav-btn-{{ loop.index0 }}" style="width: 42px; height: 42px; padding: 0; font-weight: 600;">
+                                {{ loop.index }}
+                            </button>
+                            {% endfor %}
+                        </div>
+                    </div>
+                    <div class="card-footer bg-light py-2">
+                        <div id="saveStatusBar" style="display:none;">
+                            <span id="saveStatusText" class="badge w-100 py-2"></span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Right Area: Question Card -->
+            <div class="col-md-9 h-100">
+                <form id="examForm" action="/student/submit-theory" method="POST" class="h-100 d-flex flex-column">
+                    <input type="hidden" name="student_exam_id" value="{{ student_exam_id }}">
+                    
+                    <div class="question-area flex-grow-1">
+                        {% for question in questions %}
+                        <div class="question-card-fixed {% if not loop.first %}d-none{% endif %}" id="question-card-{{ loop.index0 }}" data-question-index="{{ loop.index0 }}">
+                            <div class="question-card-body">
+                                <div class="d-flex justify-content-between align-items-center mb-3">
+                                    <h5 class="mb-0 fw-bold text-primary">Question {{ loop.index }}</h5>
+                                    <div class="d-flex gap-2">
+                                        <span class="badge bg-light text-dark border px-2 py-1 small">
+                                            {% if question.question_type == 'theory' %}
+                                            <i class="fas fa-check-circle text-primary me-1"></i> MCQ
+                                            {% else %}
+                                            <i class="fas fa-align-left text-info me-1"></i> Short Answer
+                                            {% endif %}
+                                        </span>
+                                        <span class="badge bg-{{ 'success' if question.difficulty_level == 'easy' else 'warning' if question.difficulty_level == 'average' else 'danger' }} px-2 py-1 small">
+                                            <i class="fas fa-layer-group me-1"></i> {{ question.difficulty_level | capitalize }}
+                                        </span>
+                                        <span class="badge bg-secondary px-2 py-1 small">
+                                            <i class="fas fa-star me-1"></i> {{ question.max_score }} Pts
+                                        </span>
+                                    </div>
+                                </div>
+                                
+                                {% if question.image_blob %}
+                                <div class="question-image-wrap">
+                                    <img src="{{ url_for('files.get_question_image', question_id=question.id) }}" alt="Question image" onclick="openLightbox(this.src)">
+                                </div>
+                                {% endif %}
+                                
+                                <div class="question-text mb-3">
+                                    <h6 class="lh-base fw-bold mb-0">{{ question.question_text }}</h6>
+                                </div>
+                                
+                                <div class="options-container">
+                                    <div class="options">
+                                        {% if question.options %}
+                                            {% set options = question.options.split('|||') %}
+                                            {% set option_ids = question.option_ids.split(',') %}
+                                            {% set option_orders = question.option_orders.split(',') %}
+                                            
+                                            {% for i in range(options|length) %}
+                                            <div class="option-item {% if question.id|string in saved_answers and option_ids[i] in saved_answers[question.id|string] %}selected{% endif %}" data-option-id="{{ option_ids[i] }}">
+                                                <div class="form-check w-100">
+                                                    <input class="form-check-input" type="{% if question.is_multiple_correct %}checkbox{% else %}radio{% endif %}" 
+                                                           name="question_{{ question.id }}" value="{{ option_ids[i] }}"
+                                                           id="opt-{{ question.id }}-{{ i }}"
+                                                           {% if question.id|string in saved_answers and option_ids[i] in saved_answers[question.id|string] %}checked{% endif %}>
+                                                    <label class="form-check-label w-100 ps-2" for="opt-{{ question.id }}-{{ i }}">
+                                                        <span class="fw-bold me-2">{{ option_orders[i] }}.</span> {{ options[i] }}
+                                                    </label>
+                                                </div>
+                                            </div>
+                                            {% endfor %}
+                                        {% else %}
+                                            <div class="alert alert-warning">No options available for this question.</div>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                                
+                                <div class="mt-3">
+                                    <small class="text-muted"><i class="fas fa-info-circle me-1"></i> 
+                                        {% if question.question_type == 'short_answer' %}Multiple choices may be correct.{% elif question.is_multiple_correct %}Select all that apply.{% else %}Select one correct option.{% endif %}
+                                    </small>
+                                </div>
+                            </div>
+
+                            <div class="question-card-footer d-flex justify-content-between align-items-center">
+                                <div>
+                                    <button type="button" class="btn btn-outline-primary px-3" onclick="showQuestion({{ loop.index0 - 1 }})" {% if loop.first %}disabled{% endif %}>
+                                        <i class="fas fa-chevron-left me-1"></i> Previous
+                                    </button>
+                                </div>
+                                
+                                {% if loop.last %}
+                                <div class="d-flex gap-2">
+                                    <button type="button" class="btn btn-warning px-3" onclick="saveAllAnswers()" id="saveProgressBtn">
+                                        <i class="fas fa-save me-1"></i> Save
+                                    </button>
+                                    <button type="submit" class="btn btn-success px-4" onclick="return confirmSubmit()">
+                                        <i class="fas fa-check-circle me-1"></i> 
+                                        {% if current_phase == 1 %}Submit MCQs & Next{% else %}Submit Short Answer{% endif %}
+                                    </button>
+                                </div>
+                                {% else %}
+                                <div>
+                                    <button type="button" class="btn btn-primary px-4" onclick="showQuestion({{ loop.index0 + 1 }})">
+                                        Next <i class="fas fa-chevron-right ms-1"></i>
+                                    </button>
+                                </div>
+                                {% endif %}
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Lightbox Modal -->
+<div id="imageLightbox" onclick="closeLightbox()">
+    <div class="lightbox-content" onclick="event.stopPropagation()">
+        <button type="button" class="lightbox-close" onclick="closeLightbox()">&times;</button>
+        <img id="lightboxImg" src="" alt="Enlarged question image">
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+.question-card.border-success {
+    border: 2px solid #28a745 !important;
+}
+
+
+.timer.text-danger {
+    animation: pulse 1s infinite;
+}
+
+@keyframes pulse {
+    0% { opacity: 1; }
+    50% { opacity: 0.5; }
+    100% { opacity: 1; }
+}
+</style>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+let timeLeft = {{ remaining_seconds }};
+let timerInterval;
+let heartbeatInterval; // Scoped outside to be clearable
+let totalQuestions = {{ questions|length }};
+let answeredQuestions = 0;
+let tabSwitchCount = 0;
+let MAX_TAB_SWITCHES = 3;
+
+// Lightbox Functions
+function openLightbox(src) {
+    const lightbox = document.getElementById('imageLightbox');
+    const img = document.getElementById('lightboxImg');
+    if (lightbox && img) {
+        img.src = src;
+        lightbox.style.display = 'flex';
+    }
+}
+
+function closeLightbox() {
+    const lightbox = document.getElementById('imageLightbox');
+    if (lightbox) {
+        lightbox.style.display = 'none';
+    }
+}
+
+// Prevent right-click
+document.addEventListener('contextmenu', function(e) {
+    e.preventDefault();
+});
+
+// Prevent keyboard shortcuts
+document.addEventListener('keydown', function(e) {
+    if (e.key === 'Escape') {
+        closeLightbox();
+    }
+    if (e.ctrlKey && (e.key === 'c' || e.key === 'v' || e.key === 'u' || e.key === 's' || e.key === 'p')) {
+        e.preventDefault();
+    }
+    if (e.key === 'F12' || (e.ctrlKey && e.shiftKey && e.key === 'I')) {
+        e.preventDefault();
+    }
+});
+
+// Stricter Lockdown Logic
+let isViolationActive = false;
+
+function triggerViolation(reason) {
+    if (isViolationActive) return;
+    isViolationActive = true;
+    
+    tabSwitchCount++;
+    if (tabSwitchCount >= MAX_TAB_SWITCHES) {
+        alert(`CRITICAL VIOLATION: ${reason}. \nYou have exceeded the maximum of ${MAX_TAB_SWITCHES} violations. Your exam will now be automatically submitted.`);
+        $('#examForm').submit();
+    } else {
+        alert(`WARNING: ${reason} is strictly prohibited during the theory exam. \n\nViolation ${tabSwitchCount} of ${MAX_TAB_SWITCHES}. If you reach ${MAX_TAB_SWITCHES} violations, your exam will be automatically submitted.`);
+        // Reset flag after alert is closed to prevent immediate re-triggering
+        setTimeout(() => { isViolationActive = false; }, 1000);
+    }
+}
+
+document.addEventListener("visibilitychange", function() {
+    if (document.hidden) {
+        triggerViolation("Tab switching or minimizing the window");
+    }
+});
+
+window.addEventListener('blur', function() {
+    // Only trigger if we aren't already handling a violation
+    // and the document isn't already hidden (to avoid double counts)
+    if (!document.hidden) {
+        triggerViolation("Losing focus from the exam window (opening other apps or OS menus)");
+    }
+});
+
+function enforceFullScreen() {
+    let elem = document.documentElement;
+    if (elem.requestFullscreen) {
+        elem.requestFullscreen().catch(err => {
+            console.log(`Error attempting to enable fullscreen: ${err.message}`);
+        });
+    } else if (elem.webkitRequestFullscreen) { /* Safari */
+        elem.webkitRequestFullscreen();
+    } else if (elem.msRequestFullscreen) { /* IE11 */
+        elem.msRequestFullscreen();
+    }
+}
+
+// Ensure full screen is on
+document.addEventListener('click', function() {
+    if (!document.fullscreenElement) {
+        enforceFullScreen();
+    }
+});
+
+// Start timer (renamed to avoid main.js conflict)
+function initExamTimer() {
+    // Local tick every second for smooth UI
+    timerInterval = setInterval(function() {
+        if (timeLeft > 0) {
+            timeLeft--;
+        }
+        let minutes = Math.floor(timeLeft / 60);
+        let seconds = timeLeft % 60;
+        $('#timeRemaining').text((minutes < 10 ? '0' : '') + minutes + ':' + (seconds < 10 ? '0' : '') + seconds);
+        
+        if (timeLeft <= 300) {
+            $('.timer').addClass('text-danger');
+        }
+        
+        if (timeLeft <= 0) {
+            clearInterval(timerInterval);
+            if (heartbeatInterval) clearInterval(heartbeatInterval);
+            alert('Time is up! Your exam will be submitted automatically.');
+            $('#examForm').submit();
+        }
+    }, 1000);
+
+    // Heartbeat every 5 seconds to sync with server and track active time
+    heartbeatInterval = setInterval(function() {
+        if (document.hidden) return; // Don't send heartbeat if tab is inactive
+        
+        fetch('/student/api/heartbeat', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                student_exam_id: {{ student_exam_id }}
+            }),
+            keepalive: true
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success && data.remaining_seconds !== undefined) {
+                // Sync local timer with true active time from server
+                timeLeft = data.remaining_seconds;
+                if (timeLeft <= 0) {
+                    clearInterval(timerInterval);
+                    clearInterval(heartbeatInterval);
+                    alert('Time is up! Your exam will be submitted automatically.');
+                    $('#examForm').submit();
+                }
+            }
+        })
+        .catch(error => console.error('Heartbeat error:', error));
+    }, 5000);
+}
+
+let currentQuestionIndex = 0;
+
+function showQuestion(index) {
+    if (index < 0 || index >= totalQuestions) return;
+    
+    // Hide all question cards
+    $('.question-card-fixed').addClass('d-none');
+    
+    // Show target question card
+    $(`#question-card-${index}`).removeClass('d-none');
+    
+    // Update active state in nav panel
+    $('.question-nav-btn').removeClass('active btn-primary text-white').addClass('btn-outline-secondary');
+    $(`#nav-btn-${index}`).removeClass('btn-outline-secondary').addClass('active btn-primary text-white');
+    
+    // Maintain success colors
+    updateProgress();
+    
+    currentQuestionIndex = index;
+}
+
+// Track answered questions
+function updateProgress() {
+    answeredQuestions = 0;
+    $('.question-card-fixed').each(function() {
+        let qIndex = $(this).data('question-index');
+        let navBtn = $(`#nav-btn-${qIndex}`);
+        
+        if ($(this).find('input:checked').length > 0) {
+            answeredQuestions++;
+            $(this).addClass('border-success');
+            
+            // Mark nav button as answered (green) if it's not the active one
+            if (!navBtn.hasClass('active')) {
+                navBtn.removeClass('btn-outline-secondary').addClass('btn-success text-white');
+            }
+        } else {
+            // Remove answered style if unchecked
+            if (!navBtn.hasClass('active')) {
+                navBtn.removeClass('btn-success text-white').addClass('btn-outline-secondary');
+            }
+            $(this).removeClass('border-success');
+        }
+    });
+    
+    let progress = (answeredQuestions / totalQuestions) * 100;
+    $('#progressBar').css('width', progress + '%').attr('aria-valuenow', progress);
+}
+
+// ---- Save Status Helpers ----
+function showSaveStatus(message, type) {
+    let bar = document.getElementById('saveStatusBar');
+    let text = document.getElementById('saveStatusText');
+    if(!bar || !text) return;
+    bar.style.display = 'block';
+    text.className = 'badge bg-' + type;
+    text.innerHTML = message;
+    if (type === 'success') {
+        setTimeout(function() { bar.style.display = 'none'; }, 3000);
+    }
+}
+
+// ---- Collect all current answers from the form ----
+function collectAllAnswers() {
+    let answers = [];
+    let seen = {};
+    $('input.form-check-input:checked').each(function() {
+        let name = $(this).attr('name');
+        let questionId = name.replace('question_', '');
+        if (!seen[questionId]) {
+            seen[questionId] = [];
+        }
+        seen[questionId].push($(this).val());
+    });
+    for (let qid in seen) {
+        answers.push({ question_id: qid, selected_options: seen[qid].join(',') });
+    }
+    return answers;
+}
+
+// ---- Real Save Progress (batch save all answers) ----
+function saveAllAnswers() {
+    let answers = collectAllAnswers();
+    if (answers.length === 0) {
+        showSaveStatus('<i class="fas fa-info-circle"></i> No answers to save', 'warning');
+        return Promise.resolve();
+    }
+    let btn = document.getElementById('saveProgressBtn');
+    if (btn) {
+        btn.disabled = true;
+        btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Saving...';
+    }
+    showSaveStatus('<i class="fas fa-spinner fa-spin"></i> Saving all answers...', 'info');
+    return fetch('/student/api/save-answers-batch', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+            student_exam_id: {{ student_exam_id }},
+            answers: answers
+        })
+    })
+    .then(function(response) {
+        if (!response.ok) {
+            throw new Error('Server returned ' + response.status);
+        }
+        return response.json();
+    })
+    .then(function(data) {
+        if (data.success) {
+            showSaveStatus('<i class="fas fa-check-circle"></i> All answers saved (' + data.saved_count + ' questions)', 'success');
+        } else {
+            showSaveStatus('<i class="fas fa-exclamation-triangle"></i> Save failed: ' + (data.message || 'Unknown error'), 'danger');
+        }
+    })
+    .catch(function(error) {
+        console.error('Batch save error:', error);
+        showSaveStatus('<i class="fas fa-exclamation-triangle"></i> Save failed — check connection', 'danger');
+    })
+    .finally(function() {
+        if (btn) {
+            btn.disabled = false;
+            btn.innerHTML = '<i class="fas fa-save"></i> Save Progress';
+        }
+    });
+}
+
+// Confirm submission
+function confirmSubmit() {
+    let unanswered = totalQuestions - answeredQuestions;
+    let phaseText = "{{ 'MCQ' if current_phase == 1 else 'Short Answer' }}";
+    let nextText = "{{ 'short answer' if current_phase == 1 else 'final submission' }}";
+    
+    if (unanswered > 0) {
+        return confirm('You have ' + unanswered + ' unanswered questions in the ' + phaseText + ' section. Are you sure you want to proceed to ' + nextText + '?');
+    }
+    return confirm('Are you sure you want to submit your ' + phaseText + ' answers and move to ' + nextText + '?');
+}
+
+// ---- Auto-save on option change with response validation ----
+$(document).on('change', 'input.form-check-input', function() {
+    updateProgress();
+    
+    // Highlight selected option
+    if ($(this).attr('type') === 'radio') {
+        $(this).closest('.options').find('.option-item').removeClass('selected');
+    }
+    
+    if ($(this).attr('type') === 'checkbox') {
+        if ($(this).is(':checked')) {
+            $(this).closest('.option-item').addClass('selected');
+        } else {
+            $(this).closest('.option-item').removeClass('selected');
+        }
+    } else {
+        $(this).closest('.option-item').addClass('selected');
+    }
+    
+    // Auto-save with response validation
+    let questionId = $(this).attr('name').replace('question_', '');
+    let selectedOptions = [];
+    $(`input[name="question_${questionId}"]:checked`).each(function() {
+        selectedOptions.push($(this).val());
+    });
+    
+    let qIndex = $(this).closest('.question-card-fixed').data('question-index');
+    
+    fetch('/student/api/save-answer', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+            student_exam_id: {{ student_exam_id }},
+            question_id: questionId,
+            selected_options: selectedOptions.join(',')
+        }),
+        keepalive: true
+    })
+    .then(function(response) {
+        if (!response.ok) {
+            throw new Error('Save failed: ' + response.status);
+        }
+        return response.json();
+    })
+    .then(function(data) {
+        if (!data.success) {
+            console.error('Auto-save returned failure:', data.message);
+            showSaveStatus('<i class="fas fa-exclamation-triangle"></i> Failed to save Q' + (qIndex + 1), 'danger');
+        }
+    })
+    .catch(function(error) {
+        console.error('Auto-save error:', error);
+        showSaveStatus('<i class="fas fa-exclamation-triangle"></i> Failed to save Q' + (qIndex + 1) + ' — check connection', 'danger');
+    });
+});
+
+// ---- Periodic batch save every 30 seconds ----
+let periodicSaveInterval;
+function startPeriodicSave() {
+    periodicSaveInterval = setInterval(function() {
+        if (document.hidden) return;
+        let answers = collectAllAnswers();
+        if (answers.length === 0) return;
+        fetch('/student/api/save-answers-batch', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                student_exam_id: {{ student_exam_id }},
+                answers: answers
+            }),
+            keepalive: true
+        })
+        .then(function(r) { return r.json(); })
+        .then(function(data) {
+            if (data.success) {
+                console.log('Periodic save OK:', data.saved_count, 'answers');
+            }
+        })
+        .catch(function(e) { console.error('Periodic save error:', e); });
+    }, 30000);
+}
+
+// ---- Start timer when page loads ----
+$(document).ready(function() {
+    try {
+        alert("This is a strictly monitored exam. \n\n1. You must remain in full screen mode. \n2. Do NOT switch tabs or open other applications. \n3. Doing so will result in an automatic submission of your exam.\n\nClick OK to enter full screen and begin.");
+        initExamTimer();
+        enforceFullScreen();
+        showQuestion(0);
+        updateProgress();
+        startPeriodicSave();
+    } catch (e) {
+        console.error("Init error:", e);
+    }
+    
+    // Save all answers before page unloads (browser close, navigate away)
+    window.addEventListener('beforeunload', function(e) {
+        // Use sendBeacon for reliable delivery even during page unload
+        let answers = collectAllAnswers();
+        if (answers.length > 0) {
+            let payload = JSON.stringify({
+                student_exam_id: {{ student_exam_id }},
+                answers: answers
+            });
+            navigator.sendBeacon('/student/api/save-answers-batch', new Blob([payload], { type: 'application/json' }));
+        }
+        e.preventDefault();
+        e.returnValue = 'Your answers have been saved. Are you sure you want to leave?';
+    });
+});
+</script>
+{% endblock %}

@@ -1,0 +1,79 @@
+{% extends "base.html" %}
+
+{% block title %}My Results - Student{% endblock %}
+
+{% block sidebar %}
+<ul class="nav flex-column pt-3">
+    <li class="nav-item">
+        <a class="nav-link" href="{{ url_for('student.dashboard') }}">
+            <i class="fas fa-home"></i> Dashboard
+        </a>
+    </li>
+    <li class="nav-item">
+        <a class="nav-link active" href="{{ url_for('student.results') }}">
+            <i class="fas fa-certificate"></i> My Results
+        </a>
+    </li>
+</ul>
+{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
+    <h1 class="h2">My Results</h1>
+</div>
+
+<div class="row">
+    {% for result in results %}
+    <div class="col-md-6 mb-4">
+        <div class="card shadow border-top-primary h-100">
+            <div class="card-header bg-white d-flex justify-content-between align-items-center pb-0 border-0 pt-3">
+                <h5 class="mb-0 text-primary fw-bold">{{ result.exam_name }}</h5>
+                <span class="badge {% if result.grade in ['A+', 'A', 'B+', 'B'] %}bg-success{% elif result.grade in ['C+', 'C'] %}bg-warning{% else %}bg-danger{% endif %} fs-5 px-3 py-2">
+                    Grade: {{ result.grade }}
+                </span>
+            </div>
+            <div class="card-body">
+                <p class="text-muted small mb-4"><i class="fas fa-book me-1"></i> {{ result.subject_name }}</p>
+                
+                <div class="row text-center mb-4">
+                    <div class="col-4 border-end">
+                        <h3 class="mb-0 fw-bold">{{ result.theory_score }}</h3>
+                        <span class="small text-muted">Theory Score</span>
+                    </div>
+                    <div class="col-4 border-end">
+                        <h3 class="mb-0 fw-bold">{{ result.practical_score }}</h3>
+                        <span class="small text-muted">Practical Score</span>
+                    </div>
+                    <div class="col-4">
+                        <h3 class="mb-0 fw-bold text-dark">{{ result.total_score }}</h3>
+                        <span class="small text-muted">Total Score</span>
+                    </div>
+                </div>
+                
+                <div class="mb-2 d-flex justify-content-between">
+                    <span class="small fw-bold">Overall Percentage</span>
+                    <span class="small fw-bold">{{ result.percentage }}%</span>
+                </div>
+                <div class="progress" style="height: 10px;">
+                    <div class="progress-bar {% if result.percentage >= 80 %}bg-success{% elif result.percentage >= 50 %}bg-warning{% else %}bg-danger{% endif %}" 
+                         role="progressbar" style="width: {{ result.percentage }}%"></div>
+                </div>
+            </div>
+            <div class="card-footer bg-light text-center py-3">
+                <small class="text-muted"><i class="fas fa-calendar-check me-1"></i> Result finalized on {{ result.prepared_at.strftime('%b %d, %Y') }}</small>
+            </div>
+        </div>
+    </div>
+    {% else %}
+    <div class="col-12">
+        <div class="card bg-light border-0 shadow-sm text-center py-5">
+            <div class="card-body">
+                <i class="fas fa-file-invoice fa-4x text-muted mb-3 opacity-50"></i>
+                <h5>No Results Available</h5>
+                <p class="text-muted mb-0">Your examination results will appear here once they have been finalized and published by the school administration.</p>
+            </div>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+{% endblock %}
