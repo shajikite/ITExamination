@@ -52,6 +52,8 @@ def login():
                     return redirect(url_for('school_admin.dashboard'))
                 elif user['user_type'] == 'invigilator':
                     return redirect(url_for('invigilator.dashboard'))
+                elif user['user_type'] == 'revaluator':
+                    return redirect(url_for('revaluator.dashboard'))
                 elif user['user_type'] == 'student':
                     session.clear()
                     error = 'Students must be logged in by an invigilator.'

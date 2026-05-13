@@ -206,7 +206,6 @@ def create_school_admin():
     return render_template('state_admin/create_school_admin.html', schools=schools, admins=admins, stats=stats)
 
 
-
 @state_admin_bp.route('/bulk-upload-school-admins', methods=['POST'])
 @login_required(role='state_admin')
 def bulk_upload_school_admins():
@@ -358,6 +357,42 @@ def create_question_setter():
         ORDER BY created_at DESC
     ''')
     return render_template('state_admin/create_question_setter.html', setters=setters)
+    
+# ---------------------------------------------------------------------------
+# Revaluators — Create / List
+# ---------------------------------------------------------------------------
+
+@state_admin_bp.route('/manage-revaluators', methods=['GET', 'POST'])
+@login_required(role='state_admin')
+def manage_revaluators():
+    if request.method == 'POST':
+        username = request.form['username']
+        password = request.form['password']
+        full_name = request.form['full_name']
+        email = request.form.get('email', '')
+        phone = request.form.get('phone', '')
+
+        existing = query_db('SELECT id FROM users WHERE username=%s', (username,), one=True)
+        if existing:
+            flash('Username already exists. Please choose another.', 'error')
+            return redirect(url_for('state_admin.manage_revaluators'))
+
+        password_hash = generate_password_hash(password)
+
+        insert_db('''
+            INSERT INTO users (username, password_hash, full_name, email, phone, user_type, created_by)
+            VALUES (%s, %s, %s, %s, %s, 'revaluator', %s)
+        ''', (username, password_hash, full_name, email, phone, session['user_id']))
+
+        flash('Revaluator created successfully!', 'success')
+        return redirect(url_for('state_admin.manage_revaluators'))
+
+    revaluators = query_db('''
+        SELECT * FROM users
+        WHERE user_type = 'revaluator'
+        ORDER BY created_at DESC
+    ''')
+    return render_template('state_admin/manage_revaluators.html', revaluators=revaluators)
 
 # ---------------------------------------------------------------------------
 # Students — Create / List / Bulk Upload / (Edit & Toggle reuse shared routes)
@@ -545,7 +580,6 @@ def create_examination():
         is_multiple = request.form.get('is_multiple_correct_allowed', False)
         max_score = request.form.get('max_score', 0)
         chapters = request.form.getlist('chapters')
-        question_setters = request.form.getlist('question_setters')
 
         exam_id = insert_db('''
             INSERT INTO examinations
@@ -602,16 +636,11 @@ def create_examination():
             except (ValueError, IndexError):
                 continue
 
-        for setter_id in question_setters:
-            insert_db('INSERT INTO question_setter_assignments (exam_id, user_id) VALUES (%s, %s)',
-                      (exam_id, setter_id))
-
         flash('Examination created successfully!', 'success')
         return redirect(url_for('state_admin.create_examination'))
 
     classes = query_db('SELECT * FROM classes ORDER BY class_name')
     subjects = query_db('SELECT * FROM subjects ORDER BY subject_name')
-    question_setters = query_db("SELECT * FROM users WHERE user_type='question_setter'")
 
     exams = query_db('''
         SELECT e.*, c.class_name, s.subject_name
@@ -622,8 +651,110 @@ def create_examination():
     ''')
 
     return render_template('state_admin/create_examination.html',
-                           classes=classes, subjects=subjects,
-                           question_setters=question_setters, exams=exams)
+                           classes=classes, subjects=subjects, exams=exams)
+
+
+@state_admin_bp.route('/edit-examination/<int:exam_id>', methods=['GET', 'POST'])
+@login_required(role='state_admin')
+def edit_examination(exam_id):
+    exam = query_db('SELECT * FROM examinations WHERE id = %s', (exam_id,), one=True)
+    if not exam:
+        flash('Examination not found.', 'error')
+        return redirect(url_for('state_admin.create_examination'))
+    
+    if exam['status'] != 'draft':
+        flash('Only draft examinations can be edited.', 'error')
+        return redirect(url_for('state_admin.create_examination'))
+
+    if request.method == 'POST':
+        exam_name = request.form['exam_name']
+        class_id = request.form['class_id']
+        subject_id = request.form['subject_id']
+        start_date = request.form['start_date']
+        end_date = request.form['end_date']
+        duration_minutes = request.form['duration_minutes']
+        total_theory = request.form['total_theory_questions']
+        total_short_answer = request.form.get('total_short_answer_questions', 0)
+        total_practical = request.form['total_practical_questions']
+        easy_q = request.form.get('easy_questions', 0)
+        average_q = request.form.get('average_questions', 0)
+        difficult_q = request.form.get('difficult_questions', 0)
+        is_multiple = request.form.get('is_multiple_correct_allowed', False)
+        max_score = request.form.get('max_score', 0)
+        chapters = request.form.getlist('chapters')
+
+        update_db('''
+            UPDATE examinations SET
+            exam_name=%s, class_id=%s, subject_id=%s, start_date=%s, end_date=%s, duration_minutes=%s,
+            total_theory_questions=%s, total_short_answer_questions=%s, total_practical_questions=%s, 
+            easy_questions=%s, average_questions=%s, difficult_questions=%s, 
+            is_multiple_correct_allowed=%s, max_score=%s
+            WHERE id=%s
+        ''', (exam_name, class_id, subject_id, start_date, end_date, duration_minutes,
+              total_theory, total_short_answer, total_practical, easy_q, average_q, difficult_q,
+              bool(is_multiple), max_score, exam_id))
+
+        # Clear and re-add chapters
+        update_db('DELETE FROM exam_chapters WHERE exam_id = %s', (exam_id,))
+        
+        for chapter_id in chapters:
+            easy = request.form.get(f'easy_count_{chapter_id}', 0)
+            avg = request.form.get(f'avg_count_{chapter_id}', 0)
+            diff = request.form.get(f'diff_count_{chapter_id}', 0)
+            
+            insert_db('''
+                INSERT INTO exam_chapters (exam_id, chapter_id, easy_count, average_count, difficult_count)
+                VALUES (%s, %s, %s, %s, %s)
+            ''', (exam_id, chapter_id, easy, avg, diff))
+
+        # Handle custom chapters
+        custom_chapter_names = request.form.getlist('custom_chapter_names[]')
+        custom_chapter_ids = request.form.getlist('custom_chapter_ids[]')
+        custom_chapters_check = request.form.getlist('custom_chapters_check[]')
+        
+        for idx_str in custom_chapters_check:
+            try:
+                idx = int(idx_str)
+                list_idx = custom_chapter_ids.index(str(idx))
+                name = custom_chapter_names[list_idx]
+                
+                if not name.strip():
+                    continue
+                    
+                new_ch_id = insert_db('''
+                    INSERT INTO chapters (subject_id, chapter_name, chapter_number)
+                    VALUES (%s, %s, (SELECT COALESCE(MAX(chapter_number), 0) + 1 FROM chapters WHERE subject_id = %s))
+                    RETURNING id
+                ''', (subject_id, name.strip(), subject_id))
+                
+                easy = request.form.get(f'custom_easy_count_{idx}', 0)
+                avg = request.form.get(f'custom_avg_count_{idx}', 0)
+                diff = request.form.get(f'custom_diff_count_{idx}', 0)
+                
+                insert_db('''
+                    INSERT INTO exam_chapters (exam_id, chapter_id, easy_count, average_count, difficult_count)
+                    VALUES (%s, %s, %s, %s, %s)
+                ''', (exam_id, new_ch_id, easy, avg, diff))
+            except (ValueError, IndexError):
+                continue
+
+        flash('Examination updated successfully!', 'success')
+        return redirect(url_for('state_admin.create_examination'))
+
+    classes = query_db('SELECT * FROM classes ORDER BY class_name')
+    subjects = query_db('SELECT * FROM subjects ORDER BY subject_name')
+    
+    # Fetch assigned chapters for this exam
+    assigned_chapters = query_db('''
+        SELECT ec.*, c.chapter_name, c.chapter_number
+        FROM exam_chapters ec
+        JOIN chapters c ON ec.chapter_id = c.id
+        WHERE ec.exam_id = %s
+    ''', (exam_id,))
+
+    return render_template('state_admin/edit_examination.html',
+                           exam=exam, classes=classes, subjects=subjects,
+                           assigned_chapters=assigned_chapters)
 
 
 @state_admin_bp.route('/publish-examination/<int:exam_id>', methods=['POST'])
@@ -713,6 +844,7 @@ def edit_question(question_id):
         difficulty_level = request.form['difficulty_level']
         max_score = request.form['max_score']
         remove_image = request.form.get('remove_image') == '1'
+        remove_resource = request.form.get('remove_resource') == '1'
 
         # --- Handle image ---
         new_image_blob = None
@@ -732,21 +864,47 @@ def edit_question(question_id):
             new_image_mimetype = None
             image_changed = True
 
+        # --- Handle resource file ---
+        new_resource_blob = None
+        new_resource_mimetype = None
+        new_resource_name = None
+        resource_changed = False
+
+        uploaded_resource = request.files.get('resource_file')
+        if uploaded_resource and uploaded_resource.filename:
+            from app.utils.crypto import encrypt_data
+            from werkzeug.utils import secure_filename
+            rfile_data = uploaded_resource.read()
+            new_resource_blob = encrypt_data(rfile_data)
+            new_resource_mimetype = uploaded_resource.mimetype
+            new_resource_name = secure_filename(uploaded_resource.filename)
+            resource_changed = True
+        elif remove_resource:
+            new_resource_blob = None
+            new_resource_mimetype = None
+            new_resource_name = None
+            resource_changed = True
+
         language = request.form.get('language', 'English')
 
+        # Construct dynamic update query based on what changed
+        fields = ["question_text=%s", "difficulty_level=%s", "max_score=%s", "language=%s"]
+        params = [question_text, difficulty_level, max_score, language]
+
         if image_changed:
-            update_db('''
-                UPDATE questions
-                SET question_text=%s, difficulty_level=%s, max_score=%s,
-                    image_blob=%s, image_mimetype=%s, language=%s
-                WHERE id=%s
-            ''', (question_text, difficulty_level, max_score,
-                  new_image_blob, new_image_mimetype, language, question_id))
-        else:
-            update_db('''
-                UPDATE questions SET question_text=%s, difficulty_level=%s, max_score=%s, language=%s
-                WHERE id=%s
-            ''', (question_text, difficulty_level, max_score, language, question_id))
+            fields.append("image_blob=%s")
+            fields.append("image_mimetype=%s")
+            params.extend([new_image_blob, new_image_mimetype])
+        
+        if resource_changed:
+            fields.append("resource_file_blob=%s")
+            fields.append("resource_file_mimetype=%s")
+            fields.append("resource_file_name=%s")
+            params.extend([new_resource_blob, new_resource_mimetype, new_resource_name])
+
+        params.append(question_id)
+        query = f"UPDATE questions SET {', '.join(fields)} WHERE id=%s"
+        update_db(query, tuple(params))
 
         # --- Update MCQ options for theory/short_answer questions ---
         if question['question_type'] in ['theory', 'short_answer']:
@@ -772,7 +930,10 @@ def edit_question(question_id):
     )
     q_dict = dict(question)
     q_dict['has_image'] = bool(q_dict.get('image_blob'))
+    q_dict['has_resource'] = bool(q_dict.get('resource_file_blob'))
+    q_dict['resource_name'] = q_dict.get('resource_file_name')
     q_dict.pop('image_blob', None)
+    q_dict.pop('resource_file_blob', None)
 
     return render_template('state_admin/edit_question.html',
                            question=q_dict,
@@ -865,6 +1026,153 @@ def assign_students_exam():
     return render_template('state_admin/assign_students_exam.html', exams=exams, schools=schools)
 
 # ---------------------------------------------------------------------------
+# Assign Revaluators to Exam
+# ---------------------------------------------------------------------------
+
+@state_admin_bp.route('/assign-revaluators', methods=['GET', 'POST'])
+@login_required(role='state_admin')
+def assign_revaluators():
+    if request.method == 'POST':
+        exam_id = request.form.get('exam_id')
+        revaluator_ids = request.form.getlist('revaluators')
+        
+        # Clear existing assignments for this exam
+        update_db('DELETE FROM revaluator_assignments WHERE exam_id = %s', (exam_id,))
+        
+        # Add new assignments
+        for rev_id in revaluator_ids:
+            insert_db('INSERT INTO revaluator_assignments (exam_id, user_id) VALUES (%s, %s)',
+                      (exam_id, rev_id))
+        
+        flash('Revaluator assignments updated successfully!', 'success')
+        return redirect(url_for('state_admin.assign_revaluators'))
+
+    # Fetch exams with their assigned revaluators
+    exams_raw = query_db('''
+        SELECT e.*, c.class_name, s.subject_name,
+               STRING_AGG(u.full_name, ', ') as assigned_revaluators,
+               ARRAY_AGG(u.id) as assigned_ids
+        FROM examinations e
+        JOIN classes c ON e.class_id = c.id
+        JOIN subjects s ON e.subject_id = s.id
+        LEFT JOIN revaluator_assignments ra ON e.id = ra.exam_id
+        LEFT JOIN users u ON ra.user_id = u.id
+        GROUP BY e.id, c.class_name, s.subject_name
+        ORDER BY e.created_at DESC
+    ''')
+    
+    # Process assigned_ids to handle potential [None] or nulls from ARRAY_AGG on empty join
+    exams = []
+    for exam in exams_raw:
+        e_dict = dict(exam)
+        # ARRAY_AGG with LEFT JOIN returns [None] if no rows match
+        if e_dict['assigned_ids'] == [None]:
+            e_dict['assigned_ids'] = []
+        exams.append(e_dict)
+    
+    # Fetch all revaluators
+    revaluators = query_db("SELECT * FROM users WHERE user_type='revaluator' ORDER BY full_name")
+    
+    return render_template('state_admin/assign_revaluators.html', exams=exams, revaluators=revaluators)
+
+
+@state_admin_bp.route('/select-students-revaluation/<int:exam_id>', methods=['GET', 'POST'])
+@login_required(role='state_admin')
+def select_students_revaluation(exam_id):
+    exam = query_db('SELECT * FROM examinations WHERE id = %s', (exam_id,), one=True)
+    if not exam:
+        flash('Examination not found.', 'error')
+        return redirect(url_for('state_admin.assign_revaluators'))
+    
+    if request.method == 'POST':
+        student_exam_ids = request.form.getlist('student_exam_ids')
+        
+        # Reset all for this exam
+        update_db('''
+            UPDATE student_practical_submissions 
+            SET needs_revaluation = FALSE 
+            WHERE student_exam_id IN (SELECT id FROM student_exams WHERE exam_id = %s)
+        ''', (exam_id,))
+        
+        if student_exam_ids:
+            # Set selected
+            placeholders = ', '.join(['%s'] * len(student_exam_ids))
+            update_db(f'''
+                UPDATE student_practical_submissions 
+                SET needs_revaluation = TRUE 
+                WHERE student_exam_id IN ({placeholders})
+            ''', tuple(student_exam_ids))
+            
+        flash(f'Successfully updated revaluation list for {exam["exam_name"]}.', 'success')
+        return redirect(url_for('state_admin.assign_revaluators'))
+
+    # Get students who have practical submissions
+    students = query_db('''
+        SELECT u.full_name, u.username, se.id as student_exam_id, s.school_name,
+               bool_or(sps.needs_revaluation) as is_selected,
+               COUNT(sps.id) as submission_count,
+               SUM(CASE WHEN sps.score_obtained IS NOT NULL THEN 1 ELSE 0 END) as evaluated_count
+        FROM student_exams se
+        JOIN users u ON se.student_id = u.id
+        JOIN schools s ON se.school_id = s.id
+        LEFT JOIN student_practical_submissions sps ON se.id = sps.student_exam_id
+        WHERE se.exam_id = %s
+        GROUP BY u.id, u.full_name, u.username, se.id, s.school_name
+        HAVING COUNT(sps.id) > 0
+        ORDER BY s.school_name, u.full_name
+    ''', (exam_id,))
+
+    return render_template('state_admin/select_students_revaluation.html', 
+                           exam=exam, students=students)
+
+
+@state_admin_bp.route('/assign-question-setters', methods=['GET', 'POST'])
+@login_required(role='state_admin')
+def assign_question_setters():
+    if request.method == 'POST':
+        exam_id = request.form.get('exam_id')
+        setter_ids = request.form.getlist('setters')
+        
+        # Clear existing assignments for this exam
+        update_db('DELETE FROM question_setter_assignments WHERE exam_id = %s', (exam_id,))
+        
+        # Add new assignments
+        for setter_id in setter_ids:
+            insert_db('INSERT INTO question_setter_assignments (exam_id, user_id) VALUES (%s, %s)',
+                      (exam_id, setter_id))
+        
+        flash('Question setter assignments updated successfully!', 'success')
+        return redirect(url_for('state_admin.assign_question_setters'))
+
+    # Fetch exams with their assigned question setters
+    exams_raw = query_db('''
+        SELECT e.*, c.class_name, s.subject_name,
+               STRING_AGG(u.full_name, ', ') as assigned_setters,
+               ARRAY_AGG(u.id) as assigned_ids
+        FROM examinations e
+        JOIN classes c ON e.class_id = c.id
+        JOIN subjects s ON e.subject_id = s.id
+        LEFT JOIN question_setter_assignments qsa ON e.id = qsa.exam_id
+        LEFT JOIN users u ON qsa.user_id = u.id
+        GROUP BY e.id, c.class_name, s.subject_name
+        ORDER BY e.created_at DESC
+    ''')
+    
+    # Process assigned_ids to handle potential [None] or nulls from ARRAY_AGG on empty join
+    exams = []
+    for exam in exams_raw:
+        e_dict = dict(exam)
+        # ARRAY_AGG with LEFT JOIN returns [None] if no rows match
+        if e_dict['assigned_ids'] == [None]:
+            e_dict['assigned_ids'] = []
+        exams.append(e_dict)
+    
+    # Fetch all question setters
+    setters = query_db("SELECT * FROM users WHERE user_type='question_setter' ORDER BY full_name")
+    
+    return render_template('state_admin/assign_question_setters.html', exams=exams, setters=setters)
+
+# ---------------------------------------------------------------------------
 # Reports & Mark List
 # ---------------------------------------------------------------------------
 
@@ -926,6 +1234,44 @@ def reports():
                            totals=totals)
 
 
+@state_admin_bp.route('/revaluation-report')
+@login_required(role='state_admin')
+def revaluation_report():
+    exam_id = request.args.get('exam_id')
+    
+    exams = query_db('SELECT id, exam_name FROM examinations ORDER BY created_at DESC')
+    
+    query = '''
+        SELECT sps.*, 
+               u.full_name as student_name, u.username as student_reg,
+               e.exam_name, q.question_text,
+               eval.full_name as invigilator_name,
+               rev.full_name as revaluator_name
+        FROM student_practical_submissions sps
+        JOIN student_exams se ON sps.student_exam_id = se.id
+        JOIN users u ON se.student_id = u.id
+        JOIN examinations e ON se.exam_id = e.id
+        JOIN questions q ON sps.question_id = q.id
+        LEFT JOIN users eval ON sps.evaluated_by = eval.id
+        LEFT JOIN users rev ON sps.revaluated_by = rev.id
+        WHERE sps.revaluated_by IS NOT NULL
+    '''
+    params = []
+    
+    if exam_id:
+        query += ' AND e.id = %s'
+        params.append(exam_id)
+        
+    query += ' ORDER BY sps.revaluation_time DESC'
+    
+    revaluations = query_db(query, params)
+    
+    return render_template('state_admin/revaluation_report.html', 
+                         revaluations=revaluations, 
+                         exams=exams, 
+                         selected_exam=exam_id)
+
+
 
 
 @state_admin_bp.route('/mark-list')
@@ -969,3 +1315,71 @@ def mark_list():
 
     return render_template('state_admin/mark_list.html', results=results,
                            exams=exams, schools=schools, classes=classes)
+
+# ---------------------------------------------------------------------------
+# Manage Student Status / Reset Exam
+# ---------------------------------------------------------------------------
+
+@state_admin_bp.route('/manage-status')
+@login_required(role='state_admin')
+def manage_status():
+    exam_id = request.args.get('exam_id')
+    school_id = request.args.get('school_id')
+    
+    exams = query_db('SELECT id, exam_name FROM examinations ORDER BY created_at DESC')
+    schools = query_db('SELECT id, school_name FROM schools ORDER BY school_name')
+    
+    students = []
+    if exam_id and school_id:
+        students = query_db('''
+            SELECT se.id as student_exam_id, u.full_name, u.username,
+                   se.theory_status, se.practical_status
+            FROM student_exams se
+            JOIN users u ON se.student_id = u.id
+            WHERE se.exam_id = %s AND se.school_id = %s
+            ORDER BY u.full_name
+        ''', (exam_id, school_id))
+        
+    return render_template('state_admin/manage_status.html',
+                           exams=exams, schools=schools, students=students,
+                           selected_exam_id=int(exam_id) if exam_id else None,
+                           selected_school_id=int(school_id) if school_id else None)
+
+@state_admin_bp.route('/reset-exam-status', methods=['POST'])
+@login_required(role='state_admin')
+def reset_exam_status():
+    student_exam_id = request.form.get('student_exam_id')
+    
+    if not student_exam_id:
+        flash('No student selected.', 'error')
+        return redirect(request.referrer or url_for('state_admin.manage_status'))
+        
+    # Start resetting
+    try:
+        # 1. Update student_exams
+        update_db('''
+            UPDATE student_exams 
+            SET theory_status = 'pending', practical_status = 'pending',
+                theory_start_time = NULL, theory_end_time = NULL,
+                practical_start_time = NULL, practical_end_time = NULL,
+                active_time_used = 0, last_heartbeat_time = NULL
+            WHERE id = %s
+        ''', (student_exam_id,))
+        
+        # 2. Delete theory answers
+        update_db('DELETE FROM student_theory_answers WHERE student_exam_id = %s', (student_exam_id,))
+        
+        # 3. Delete practical submissions
+        update_db('DELETE FROM student_practical_submissions WHERE student_exam_id = %s', (student_exam_id,))
+        
+        # 4. Delete mark list
+        update_db('DELETE FROM mark_lists WHERE student_exam_id = %s', (student_exam_id,))
+        
+        # 5. Delete active sessions
+        update_db('DELETE FROM exam_sessions WHERE student_exam_id = %s', (student_exam_id,))
+        
+        flash('Examination status reset successfully for the student.', 'success')
+    except Exception as e:
+        flash(f'Error resetting status: {str(e)}', 'error')
+        
+    return redirect(request.referrer or url_for('state_admin.manage_status'))

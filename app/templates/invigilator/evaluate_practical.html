@@ -126,7 +126,8 @@
                                     data-max="{{ sub.max_score }}"
                                     data-question="{{ sub.question_text|escape }}"
                                     data-qid="{{ sub.question_id }}"
-                                    data-has-image="{{ sub.has_image }}">
+                                    data-has-image="{{ sub.has_image }}"
+                                    data-resource-name="{{ sub.resource_file_name or '' }}">
                                 {% if sub.remarks %}Edit Score{% else %}Evaluate{% endif %}
                             </button>
                             {% endif %}
@@ -161,6 +162,17 @@
                     <p class="mb-1 mt-2"><strong>Question:</strong> <br><span id="modalQuestionText" class="text-muted"></span></p>
                     <div id="modalQuestionImageContainer" class="mt-2 d-none">
                         <img id="modalQuestionImage" src="" class="img-fluid border rounded" alt="Question Image">
+                    </div>
+                    <div id="modalResourceContainer" class="mt-2 d-none">
+                        <div class="alert alert-light border d-flex align-items-center py-2 px-3">
+                            <i class="fas fa-paperclip text-primary me-2"></i>
+                            <div class="flex-grow-1 text-truncate">
+                                <span id="modalResourceName" class="small fw-bold"></span>
+                            </div>
+                            <a id="modalResourceDownload" href="#" class="btn btn-sm btn-outline-primary ms-2">
+                                <i class="fas fa-download"></i>
+                            </a>
+                        </div>
                     </div>
                 </div>
                 
@@ -212,6 +224,15 @@ $(document).ready(function() {
             $('#modalQuestionImageContainer').removeClass('d-none');
         } else {
             $('#modalQuestionImageContainer').addClass('d-none');
+        }
+
+        let resourceName = $(this).data('resource-name');
+        if (resourceName) {
+            $('#modalResourceName').text(resourceName);
+            $('#modalResourceDownload').attr('href', '/files/resource/' + qid);
+            $('#modalResourceContainer').removeClass('d-none');
+        } else {
+            $('#modalResourceContainer').addClass('d-none');
         }
         
         var evalModal = new bootstrap.Modal(document.getElementById('evaluationModal'));

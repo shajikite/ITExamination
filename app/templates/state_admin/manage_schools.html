@@ -13,17 +13,7 @@
 {% endblock %}
 
 {% block sidebar %}
-<ul class="nav flex-column pt-3">
-    <li class="nav-item"><a class="nav-link" href="{{ url_for('state_admin.dashboard') }}"><i class="fas fa-home"></i> Dashboard</a></li>
-    <li class="nav-item"><a class="nav-link active" href="{{ url_for('state_admin.manage_schools') }}"><i class="fas fa-school"></i> Manage Schools</a></li>
-    <li class="nav-item"><a class="nav-link" href="{{ url_for('state_admin.create_school_admin') }}"><i class="fas fa-user-shield"></i> School Admins</a></li>
-    <li class="nav-item"><a class="nav-link" href="{{ url_for('state_admin.create_question_setter') }}"><i class="fas fa-chalkboard-teacher"></i> Question Setters</a></li>
-    <li class="nav-item"><a class="nav-link" href="{{ url_for('state_admin.manage_students') }}"><i class="fas fa-user-graduate"></i> Students</a></li>
-    <li class="nav-item"><a class="nav-link" href="{{ url_for('state_admin.create_examination') }}"><i class="fas fa-file-alt"></i> Examinations</a></li>
-    <li class="nav-item"><a class="nav-link" href="{{ url_for('state_admin.assign_students_exam') }}"><i class="fas fa-clipboard-check"></i> Assign Exams</a></li>
-    <li class="nav-item"><a class="nav-link" href="{{ url_for('state_admin.mark_list') }}"><i class="fas fa-list-ol"></i> Mark List</a></li>
-    <li class="nav-item"><a class="nav-link" href="{{ url_for('state_admin.reports') }}"><i class="fas fa-chart-bar"></i> Reports</a></li>
-</ul>
+    {% include 'state_admin/sidebar.html' %}
 {% endblock %}
 
 {% block content %}

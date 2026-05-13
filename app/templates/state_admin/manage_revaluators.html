@@ -1,0 +1,114 @@
+{% extends "base.html" %}
+
+{% block sidebar %}
+    {% include 'state_admin/sidebar.html' %}
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <div class="row">
+        <div class="col-12">
+            <div class="card shadow-sm border-0 mb-4">
+                <div class="card-header bg-white py-3 d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0 text-primary fw-bold">Manage Revaluators</h5>
+                    <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#addRevaluatorModal">
+                        <i class="fas fa-plus me-1"></i> Add Revaluator
+                    </button>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-hover align-middle">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>Full Name</th>
+                                    <th>Username</th>
+                                    <th>Email</th>
+                                    <th>Phone</th>
+                                    <th>Status</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for rev in revaluators %}
+                                <tr>
+                                    <td>{{ rev.full_name }}</td>
+                                    <td><code>{{ rev.username }}</code></td>
+                                    <td>{{ rev.email }}</td>
+                                    <td>{{ rev.phone }}</td>
+                                    <td>
+                                        {% if rev.is_active %}
+                                        <span class="badge bg-success-soft text-success">Active</span>
+                                        {% else %}
+                                        <span class="badge bg-danger-soft text-danger">Inactive</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        <div class="d-flex gap-2">
+                                            <button class="btn btn-sm btn-outline-info" title="Edit">
+                                                <i class="fas fa-edit"></i>
+                                            </button>
+                                            <form action="{{ url_for('state_admin.toggle_user', user_id=rev.id) }}" method="POST">
+                                                <button type="submit" class="btn btn-sm {{ 'btn-outline-warning' if rev.is_active else 'btn-outline-success' }}" title="{{ 'Deactivate' if rev.is_active else 'Activate' }}">
+                                                    <i class="fas {{ 'fa-user-slash' if rev.is_active else 'fa-user-check' }}"></i>
+                                                </button>
+                                            </form>
+                                        </div>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Add Revaluator Modal -->
+<div class="modal fade" id="addRevaluatorModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content border-0 shadow">
+            <form method="POST">
+                <div class="modal-header bg-primary text-white">
+                    <h5 class="modal-title">Add New Revaluator</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label">Full Name</label>
+                        <input type="text" name="full_name" class="form-control" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Username</label>
+                        <input type="text" name="username" class="form-control" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Password</label>
+                        <input type="password" name="password" class="form-control" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Email</label>
+                        <input type="email" name="email" class="form-control">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Phone</label>
+                        <input type="text" name="phone" class="form-control">
+                    </div>
+                </div>
+                <div class="modal-footer bg-light">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Create Revaluator Account</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<style>
+    .bg-success-soft { background-color: #dcfce7; }
+    .bg-danger-soft { background-color: #fee2e2; }
+    .card { border-radius: 0.75rem; }
+    .table-hover tbody tr:hover { background-color: #f8fafc; }
+</style>
+{% endblock %}

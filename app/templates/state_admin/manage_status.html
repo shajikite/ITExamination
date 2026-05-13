@@ -1,0 +1,102 @@
+{% extends "base.html" %}
+
+{% block sidebar %}
+    {% include 'state_admin/sidebar.html' %}
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <div class="row">
+        <div class="col-12">
+            <div class="card shadow-sm border-0 mb-4">
+                <div class="card-header bg-white py-3">
+                    <h5 class="mb-0 text-danger fw-bold">
+                        <i class="fas fa-undo-alt me-1"></i> Reset Student Examination Status
+                    </h5>
+                    <p class="text-muted small mb-0 mt-1">
+                        Use this tool to permanently clear a student's examination data and allow them to re-attend.
+                    </p>
+                </div>
+                <div class="card-body">
+                    <form method="GET" class="row g-3 mb-4">
+                        <div class="col-md-5">
+                            <label class="form-label small fw-bold text-uppercase">Select Examination</label>
+                            <select name="exam_id" class="form-select" required>
+                                <option value="">-- Choose Exam --</option>
+                                {% for exam in exams %}
+                                <option value="{{ exam.id }}" {{ 'selected' if selected_exam_id == exam.id }}>
+                                    {{ exam.exam_name }}
+                                </option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="col-md-5">
+                            <label class="form-label small fw-bold text-uppercase">Select School</label>
+                            <select name="school_id" class="form-select" required>
+                                <option value="">-- Choose School --</option>
+                                {% for school in schools %}
+                                <option value="{{ school.id }}" {{ 'selected' if selected_school_id == school.id }}>
+                                    {{ school.school_name }}
+                                </option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="col-md-2 d-flex align-items-end">
+                            <button type="submit" class="btn btn-primary w-100">
+                                <i class="fas fa-search me-1"></i> Find Students
+                            </button>
+                        </div>
+                    </form>
+
+                    {% if students %}
+                    <div class="table-responsive">
+                        <table class="table table-hover align-middle">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>Student Name</th>
+                                    <th>Register Number</th>
+                                    <th>Theory Status</th>
+                                    <th>Practical Status</th>
+                                    <th class="text-end">Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for s in students %}
+                                <tr>
+                                    <td><strong>{{ s.full_name }}</strong></td>
+                                    <td><code>{{ s.username }}</code></td>
+                                    <td>
+                                        <span class="badge {{ 'bg-success' if s.theory_status == 'completed' else 'bg-secondary' }}">
+                                            {{ s.theory_status|title }}
+                                        </span>
+                                    </td>
+                                    <td>
+                                        <span class="badge {{ 'bg-success' if s.practical_status == 'completed' else 'bg-secondary' }}">
+                                            {{ s.practical_status|title }}
+                                        </span>
+                                    </td>
+                                    <td class="text-end">
+                                        <form action="{{ url_for('state_admin.reset_exam_status') }}" method="POST" class="d-inline" onsubmit="return confirm('WARNING: This will PERMANENTLY DELETE all answers, marks, and sessions for this student. This action cannot be undone. Are you sure?')">
+                                            <input type="hidden" name="student_exam_id" value="{{ s.student_exam_id }}">
+                                            <button type="submit" class="btn btn-sm btn-danger rounded-pill px-3">
+                                                <i class="fas fa-trash-restore me-1"></i> Reset Status
+                                            </button>
+                                        </form>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    {% elif selected_exam_id and selected_school_id %}
+                    <div class="text-center py-5">
+                        <i class="fas fa-user-slash fa-3x text-muted mb-3"></i>
+                        <p class="text-muted">No students assigned to this exam in the selected school.</p>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

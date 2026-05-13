@@ -1,0 +1,128 @@
+{% extends "base.html" %}
+
+{% block title %}Assign Question Setters - State Admin{% endblock %}
+
+{% block sidebar %}
+    {% include 'state_admin/sidebar.html' %}
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
+        <h1 class="h2">Assign Question Setters to Examinations</h1>
+        <p class="text-muted">Manage question setting permissions for all examinations.</p>
+    </div>
+
+    <div class="card shadow-sm border-0">
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-hover align-middle mb-0">
+                    <thead class="bg-light">
+                        <tr>
+                            <th class="ps-4">Examination</th>
+                            <th>Class & Subject</th>
+                            <th>Assigned Setters</th>
+                            <th class="text-end pe-4">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for exam in exams %}
+                        <tr>
+                            <td class="ps-4">
+                                <div class="fw-bold">{{ exam.exam_name }}</div>
+                                <span class="badge bg-{{ 'success' if exam.status == 'ongoing' else 'primary' if exam.status == 'published' else 'secondary' }} small">
+                                    {{ exam.status|title }}
+                                </span>
+                            </td>
+                            <td>
+                                <div>{{ exam.class_name }}</div>
+                                <div class="small text-muted">{{ exam.subject_name }}</div>
+                            </td>
+                            <td>
+                                {% if exam.assigned_setters %}
+                                    <div class="d-flex flex-wrap gap-1">
+                                        {% for name in exam.assigned_setters.split(', ') %}
+                                            <span class="badge bg-info-soft text-info border border-info-soft">{{ name }}</span>
+                                        {% endfor %}
+                                    </div>
+                                {% else %}
+                                    <span class="text-muted small">None assigned</span>
+                                {% endif %}
+                            </td>
+                            <td class="text-end pe-4">
+                                <button class="btn btn-sm btn-primary rounded-pill px-3" 
+                                        data-bs-toggle="modal" 
+                                        data-bs-target="#assignModal{{ exam.id }}">
+                                    <i class="fas fa-user-edit me-1"></i> Manage
+                                </button>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Assignment Modals -->
+{% for exam in exams %}
+<div class="modal fade" id="assignModal{{ exam.id }}" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 shadow">
+            <form method="POST">
+                <div class="modal-header border-bottom-0 pt-4 px-4">
+                    <h5 class="modal-title fw-bold">Manage Question Setters</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body px-4">
+                    <p class="text-muted small mb-4">Select the question setters who will have permission to upload and manage questions for <strong>{{ exam.exam_name }}</strong>.</p>
+                    
+                    <input type="hidden" name="exam_id" value="{{ exam.id }}">
+                    
+                    <div class="setter-list scrollbar-thin" style="max-height: 300px; overflow-y: auto;">
+                        {% for setter in setters %}
+                        <div class="form-check p-3 border rounded-3 mb-2 hover-bg-light transition-base">
+                            <input class="form-check-input ms-0 me-3" type="checkbox" name="setters" value="{{ setter.id }}" id="setter{{ exam.id }}_{{ setter.id }}"
+                                   {% if setter.id in exam.assigned_ids %}checked{% endif %}>
+                            <label class="form-check-label d-block w-100 cursor-pointer" for="setter{{ exam.id }}_{{ setter.id }}">
+                                <div class="fw-bold">{{ setter.full_name }}</div>
+                                <div class="small text-muted">{{ setter.username }}</div>
+                            </label>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+                <div class="modal-footer border-top-0 pb-4 px-4">
+                    <button type="button" class="btn btn-light rounded-pill px-4" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-primary rounded-pill px-4 shadow-sm">Save Assignments</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endfor %}
+
+<style>
+    .bg-info-soft { background-color: #e0f2fe; color: #0369a1; }
+    .border-info-soft { border-color: #bae6fd !important; }
+    .hover-bg-light:hover { background-color: #f8fafc; }
+    .transition-base { transition: all 0.2s ease; }
+    .cursor-pointer { cursor: pointer; }
+    .scrollbar-thin::-webkit-scrollbar { width: 6px; }
+    .scrollbar-thin::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
+    .form-check-input:checked + .form-check-label .fw-bold { color: var(--primary-color); }
+</style>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    $(document).ready(function() {
+        $('.modal').on('shown.bs.modal', function () {
+            $(this).find('form').first().find('input, button').first().focus();
+            $(this).css('display', 'none').get(0).offsetHeight;
+            $(this).css('display', 'block');
+        });
+    });
+</script>
+{% endblock %}

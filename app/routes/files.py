@@ -75,3 +75,22 @@ def get_option_image(option_id):
         io.BytesIO(decrypted_data),
         mimetype=option['option_image_mimetype'] or 'image/png'
     )
+
+@files_bp.route('/resource/<int:question_id>')
+@login_required()
+def get_resource_file(question_id):
+    question = query_db('SELECT resource_file_blob, resource_file_mimetype, resource_file_name FROM questions WHERE id = %s', (question_id,), one=True)
+    if not question or not question['resource_file_blob']:
+        abort(404)
+        
+    decrypted_data = decrypt_data(question['resource_file_blob'].tobytes() if hasattr(question['resource_file_blob'], 'tobytes') else bytes(question['resource_file_blob']))
+    if not decrypted_data:
+        abort(404)
+        
+    return send_file(
+        io.BytesIO(decrypted_data),
+        mimetype=question['resource_file_mimetype'] or 'application/octet-stream',
+        as_attachment=True,
+        download_name=question['resource_file_name']
+    )
+

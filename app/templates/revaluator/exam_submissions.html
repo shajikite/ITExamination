@@ -1,0 +1,96 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container py-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <nav aria-label="breadcrumb">
+                <ol class="breadcrumb">
+                    <li class="breadcrumb-item"><a href="{{ url_for('revaluator.dashboard') }}">Dashboard</a></li>
+                    <li class="breadcrumb-item active">{{ exam.exam_name }} Submissions</li>
+                </ol>
+            </nav>
+            <h1>{{ exam.exam_name }}</h1>
+            <p class="text-muted">Review and modify practical scores awarded by invigilators.</p>
+        </div>
+        <a href="{{ url_for('revaluator.dashboard') }}" class="btn btn-outline-secondary">
+            <i class="fas fa-arrow-left"></i> Back to Dashboard
+        </a>
+    </div>
+
+    <div class="card shadow-sm border-0 rounded-3">
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-hover align-middle mb-0">
+                    <thead class="bg-light text-secondary small text-uppercase">
+                        <tr>
+                            <th class="ps-4">Student Name</th>
+                            <th>Register Number</th>
+                            <th>Original Score</th>
+                            <th>Re-evaluation Status</th>
+                            <th class="text-end pe-4">Action</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for sub in submissions %}
+                        <tr>
+                            <td class="ps-4">
+                                <div class="fw-bold">{{ sub.full_name }}</div>
+                            </td>
+                            <td>{{ sub.username }}</td>
+                            <td>
+                                {% if sub.score_obtained is not none %}
+                                    <span class="badge bg-secondary">{{ sub.score_obtained }}</span>
+                                {% else %}
+                                    <span class="text-muted small">Not Evaluated</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if sub.revaluated_by %}
+                                    <span class="badge bg-success">
+                                        <i class="fas fa-check-circle"></i> Revaluated
+                                    </span>
+                                    <div class="small text-muted mt-1">
+                                        {{ sub.revaluation_time.strftime('%d %b %Y, %I:%M %p') }}
+                                    </div>
+                                {% else %}
+                                    <span class="badge bg-light text-dark border">
+                                        <i class="far fa-circle"></i> Pending
+                                    </span>
+                                {% endif %}
+                            </td>
+                            <td class="text-end pe-4">
+                                {% if sub.submission_id %}
+                                    <a href="{{ url_for('revaluator.evaluate', submission_id=sub.submission_id) }}" 
+                                       class="btn btn-sm btn-primary rounded-pill px-3">
+                                        <i class="fas fa-edit"></i> Re-evaluate
+                                    </a>
+                                {% else %}
+                                    <button class="btn btn-sm btn-outline-secondary rounded-pill px-3" disabled>
+                                        No Submission
+                                    </button>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% else %}
+                        <tr>
+                            <td colspan="5" class="text-center py-5 text-muted">
+                                No student submissions found for this examination.
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+    .card { border-radius: 1rem; overflow: hidden; }
+    .table thead th { border-top: 0; font-weight: 600; font-size: 0.75rem; letter-spacing: 0.05em; padding: 1rem 0.75rem; }
+    .table tbody td { padding: 1rem 0.75rem; border-bottom: 1px solid #f1f5f9; }
+    .breadcrumb { background: transparent; padding: 0; margin-bottom: 0.5rem; }
+    .badge { font-weight: 500; font-size: 0.75rem; }
+</style>
+{% endblock %}

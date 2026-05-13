@@ -129,10 +129,11 @@ def evaluate_practical():
         
         update_db('''
             UPDATE student_practical_submissions 
-            SET score_obtained = %s, evaluated_by = %s, remarks = %s,
+            SET score_obtained = %s, initial_score = COALESCE(initial_score, %s), 
+                evaluated_by = %s, remarks = %s,
                 evaluation_time = CURRENT_TIMESTAMP
             WHERE id = %s
-        ''', (score, session['user_id'], remarks, submission_id))
+        ''', (score, score, session['user_id'], remarks, submission_id))
         
         flash('Evaluation submitted successfully!', 'success')
         return redirect(url_for('invigilator.evaluate_practical'))
@@ -149,6 +150,7 @@ def evaluate_practical():
                sp.submission_time, u.full_name as student_name, u.username,
                e.exam_name, q.max_score, sp.remarks, q.question_text,
                sp.question_id, CASE WHEN q.image_blob IS NOT NULL THEN 1 ELSE 0 END as has_image,
+               q.resource_file_name,
                CASE WHEN ml.status = 'finalized' THEN 1 ELSE 0 END as is_locked,
                c.class_name
         FROM student_practical_submissions sp

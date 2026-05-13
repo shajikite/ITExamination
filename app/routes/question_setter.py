@@ -45,6 +45,10 @@ def upload_questions(exam_id):
         flash('Examination not found.', 'error')
         return redirect(url_for('question_setter.dashboard'))
     
+    if exam['status'] != 'draft':
+        flash('This examination is published. Access to questions is locked.', 'warning')
+        return redirect(url_for('question_setter.dashboard'))
+    
     if request.method == 'POST':
         if exam['status'] != 'draft':
             flash('This examination is published and cannot be modified.', 'error')
@@ -66,6 +70,19 @@ def upload_questions(exam_id):
                 from app.utils.crypto import encrypt_data
                 image_blob = encrypt_data(file_data)
                 image_mimetype = file.mimetype
+
+        # Handle resource file upload
+        resource_blob = None
+        resource_mimetype = None
+        resource_filename = None
+        if 'resource_file' in request.files:
+            rfile = request.files['resource_file']
+            if rfile and rfile.filename:
+                rfile_data = rfile.read()
+                from app.utils.crypto import encrypt_data
+                resource_blob = encrypt_data(rfile_data)
+                resource_mimetype = rfile.mimetype
+                resource_filename = secure_filename(rfile.filename)
         
         language = request.form.get('language', 'English')
         chapter_id = request.form.get('chapter_id')
@@ -73,11 +90,13 @@ def upload_questions(exam_id):
         question_id = insert_db('''
             INSERT INTO questions 
             (exam_id, question_type, image_blob, image_mimetype, difficulty_level, 
-             max_score, question_text, is_multiple_correct, uploaded_by, language, chapter_id)
-            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+             max_score, question_text, is_multiple_correct, uploaded_by, language, chapter_id,
+             resource_file_blob, resource_file_mimetype, resource_file_name)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
             RETURNING id
         ''', (exam_id, question_type, image_blob, image_mimetype, difficulty, max_score, 
-              question_text, bool(is_multiple), session['user_id'], language, chapter_id))
+              question_text, bool(is_multiple), session['user_id'], language, chapter_id,
+              resource_blob, resource_mimetype, resource_filename))
         
         # Add MCQ options if theory or short_answer question
         if question_type in ['theory', 'short_answer']:
@@ -124,18 +143,30 @@ def get_question(question_id):
         LEFT JOIN chapters c ON q.chapter_id = c.id
         WHERE q.id=%s AND (q.uploaded_by=%s OR q.is_global=TRUE)
     ''', (question_id, session['user_id']), one=True)
+    
+    if not question:
+        flash('Question not found.', 'error')
+        return redirect(url_for('question_setter.dashboard'))
+
+    # Check if exam is published
+    if question['exam_id']:
+        exam = query_db('SELECT status FROM examinations WHERE id=%s', (question['exam_id'],), one=True)
+        if exam and exam['status'] != 'draft':
+            return jsonify({'error': 'Examination is published. Access locked.'}), 403
+
     options = query_db('SELECT * FROM question_options WHERE question_id=%s ORDER BY option_order',
                       (question_id,))
     
-    q_dict = None
-    if question:
-        q_dict = dict(question)
-        q_dict['has_image'] = bool(q_dict.get('image_blob'))
-        q_dict.pop('image_blob', None)
+    q_dict = dict(question)
+    q_dict['has_image'] = bool(q_dict.get('image_blob'))
+    q_dict['has_resource'] = bool(q_dict.get('resource_file_blob'))
+    q_dict['resource_name'] = q_dict.get('resource_file_name')
+    q_dict.pop('image_blob', None)
+    q_dict.pop('resource_file_blob', None)
         
     return jsonify({
         'question': q_dict,
-        'chapter_name': question['chapter_name'] if question else None,
+        'chapter_name': question['chapter_name'],
         'options': [dict(opt) for opt in options]
     })
 
@@ -194,6 +225,13 @@ def question_bank():
                 d.pop('image_blob', None)
             else:
                 d['has_image'] = False
+            
+            if d.get('resource_file_blob'):
+                d['has_resource'] = True
+                d['resource_name'] = d.get('resource_file_name')
+                d.pop('resource_file_blob', None)
+            else:
+                d['has_resource'] = False
             return d
             
         return jsonify({
@@ -228,17 +266,32 @@ def add_to_bank():
             image_blob = encrypt_data(file_data)
             image_mimetype = file.mimetype
     
+    # Handle resource file upload
+    resource_blob = None
+    resource_mimetype = None
+    resource_filename = None
+    if 'resource_file' in request.files:
+        rfile = request.files['resource_file']
+        if rfile and rfile.filename:
+            rfile_data = rfile.read()
+            from app.utils.crypto import encrypt_data
+            resource_blob = encrypt_data(rfile_data)
+            resource_mimetype = rfile.mimetype
+            resource_filename = secure_filename(rfile.filename)
+
     language = request.form.get('language', 'English')
     chapter_id = request.form.get('chapter_id')
     
     question_id = insert_db('''
         INSERT INTO questions 
         (question_type, image_blob, image_mimetype, difficulty_level, 
-         max_score, question_text, is_multiple_correct, uploaded_by, language, chapter_id, is_bank, is_global)
-        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, TRUE, %s)
+         max_score, question_text, is_multiple_correct, uploaded_by, language, chapter_id, is_bank, is_global,
+         resource_file_blob, resource_file_mimetype, resource_file_name)
+        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, TRUE, %s, %s, %s, %s)
         RETURNING id
     ''', (question_type, image_blob, image_mimetype, difficulty, max_score, 
-          question_text, bool(is_multiple), session['user_id'], language, chapter_id, is_global))
+          question_text, bool(is_multiple), session['user_id'], language, chapter_id, is_global,
+          resource_blob, resource_mimetype, resource_filename))
     
     if question_type in ['theory', 'short_answer']:
         options = request.form.getlist('options[]')
@@ -271,12 +324,14 @@ def save_to_bank(question_id):
     new_q_id = insert_db('''
         INSERT INTO questions 
         (question_type, image_blob, image_mimetype, difficulty_level, 
-         max_score, question_text, is_multiple_correct, uploaded_by, language, chapter_id, is_bank, is_global)
-        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, TRUE, %s)
+         max_score, question_text, is_multiple_correct, uploaded_by, language, chapter_id, is_bank, is_global,
+         resource_file_blob, resource_file_mimetype, resource_file_name)
+        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, TRUE, %s, %s, %s, %s)
         RETURNING id
     ''', (q['question_type'], q['image_blob'], q['image_mimetype'], q['difficulty_level'], 
           q['max_score'], q['question_text'], q['is_multiple_correct'], session['user_id'], 
-          q['language'], q['chapter_id'], is_global))
+          q['language'], q['chapter_id'], is_global,
+          q['resource_file_blob'], q['resource_file_mimetype'], q['resource_file_name']))
     
     # Copy options
     options = query_db('SELECT * FROM question_options WHERE question_id=%s', (question_id,))
@@ -319,12 +374,14 @@ def import_from_bank(exam_id):
     new_q_id = insert_db('''
         INSERT INTO questions 
         (exam_id, question_type, image_blob, image_mimetype, difficulty_level, 
-         max_score, question_text, is_multiple_correct, uploaded_by, language, chapter_id, is_bank)
-        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, FALSE)
+         max_score, question_text, is_multiple_correct, uploaded_by, language, chapter_id, is_bank,
+         resource_file_blob, resource_file_mimetype, resource_file_name)
+        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, FALSE, %s, %s, %s)
         RETURNING id
     ''', (exam_id, q['question_type'], q['image_blob'], q['image_mimetype'], q['difficulty_level'], 
           q['max_score'], q['question_text'], q['is_multiple_correct'], session['user_id'], 
-          q['language'], chapter_id))
+          q['language'], chapter_id,
+          q['resource_file_blob'], q['resource_file_mimetype'], q['resource_file_name']))
     
     # Copy options
     options = query_db('SELECT * FROM question_options WHERE question_id=%s', (bank_question_id,))

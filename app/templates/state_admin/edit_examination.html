@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 
-{% block title %}Create Examination{% endblock %}
+{% block title %}Edit Examination{% endblock %}
 
 {% block sidebar %}
     {% include 'state_admin/sidebar.html' %}
@@ -8,17 +8,20 @@
 
 {% block content %}
 <div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
-    <h1 class="h2">Create Examination</h1>
+    <h1 class="h2">Edit Examination: {{ exam.exam_name }}</h1>
+    <a href="{{ url_for('state_admin.create_examination') }}" class="btn btn-outline-secondary btn-sm">
+        <i class="fas fa-arrow-left me-1"></i> Back to List
+    </a>
 </div>
 
-<div class="card">
+<div class="card shadow-sm">
     <div class="card-body">
         <form method="POST" id="examForm">
             <div class="row">
                 <div class="col-md-6">
                     <div class="mb-3">
                         <label class="form-label">Exam Name *</label>
-                        <input type="text" class="form-control" name="exam_name" required>
+                        <input type="text" class="form-control" name="exam_name" value="{{ exam.exam_name }}" required>
                     </div>
                 </div>
                 <div class="col-md-6">
@@ -26,7 +29,7 @@
                         <label class="form-label">Class *</label>
                         <select class="form-control" name="class_id" required>
                             {% for class in classes %}
-                            <option value="{{ class.id }}">{{ class.class_name }}</option>
+                            <option value="{{ class.id }}" {% if class.id == exam.class_id %}selected{% endif %}>{{ class.class_name }}</option>
                             {% endfor %}
                         </select>
                     </div>
@@ -40,7 +43,7 @@
                         <select name="subject_id" id="subjectSelect" class="form-select" required>
                             <option value="">Select Subject...</option>
                             {% for subject in subjects %}
-                            <option value="{{ subject.id }}">{{ subject.subject_name }}</option>
+                            <option value="{{ subject.id }}" {% if subject.id == exam.subject_id %}selected{% endif %}>{{ subject.subject_name }}</option>
                             {% endfor %}
                         </select>
                     </div>
@@ -48,13 +51,13 @@
                 <div class="col-md-3">
                     <div class="mb-3">
                         <label class="form-label">Start Date *</label>
-                        <input type="date" class="form-control" name="start_date" required>
+                        <input type="date" class="form-control" name="start_date" value="{{ exam.start_date }}" required>
                     </div>
                 </div>
                 <div class="col-md-3">
                     <div class="mb-3">
                         <label class="form-label">End Date *</label>
-                        <input type="date" class="form-control" name="end_date" required>
+                        <input type="date" class="form-control" name="end_date" value="{{ exam.end_date }}" required>
                     </div>
                 </div>
             </div>
@@ -63,14 +66,14 @@
                 <div class="col-md-6">
                     <div class="mb-3">
                         <label class="form-label">Duration (minutes) *</label>
-                        <input type="number" class="form-control" name="duration_minutes" value="180" required>
+                        <input type="number" class="form-control" name="duration_minutes" value="{{ exam.duration_minutes }}" required>
                     </div>
                 </div>
                 <div class="col-md-6">
                     <div class="mb-3">
                         <label class="form-label">Allow Multiple Correct Answers</label>
                         <div class="form-check">
-                            <input type="checkbox" class="form-check-input" name="is_multiple_correct_allowed">
+                            <input type="checkbox" class="form-check-input" name="is_multiple_correct_allowed" {% if exam.is_multiple_correct_allowed %}checked{% endif %}>
                             <label class="form-check-label">Yes</label>
                         </div>
                     </div>
@@ -82,25 +85,25 @@
                 <div class="col-md-3">
                     <div class="mb-3">
                         <label class="form-label">Total Theory Questions *</label>
-                        <input type="number" class="form-control" name="total_theory_questions" value="0" required>
+                        <input type="number" class="form-control" name="total_theory_questions" value="{{ exam.total_theory_questions }}" required>
                     </div>
                 </div>
                 <div class="col-md-3">
                     <div class="mb-3">
                         <label class="form-label">Total Short Answer *</label>
-                        <input type="number" class="form-control" name="total_short_answer_questions" value="0" required>
+                        <input type="number" class="form-control" name="total_short_answer_questions" value="{{ exam.total_short_answer_questions }}" required>
                     </div>
                 </div>
                 <div class="col-md-3">
                     <div class="mb-3">
                         <label class="form-label">Total Practical *</label>
-                        <input type="number" class="form-control" name="total_practical_questions" value="0" required>
+                        <input type="number" class="form-control" name="total_practical_questions" value="{{ exam.total_practical_questions }}" required>
                     </div>
                 </div>
                 <div class="col-md-3">
                     <div class="mb-3">
                         <label class="form-label">Max Score *</label>
-                        <input type="number" class="form-control" name="max_score" value="0" required>
+                        <input type="number" class="form-control" name="max_score" value="{{ exam.max_score }}" required>
                     </div>
                 </div>
             </div>
@@ -110,26 +113,26 @@
                 <div class="col-md-4">
                     <div class="mb-3">
                         <label class="form-label">Easy Questions</label>
-                        <input type="number" class="form-control bg-light" name="easy_questions" id="global_easy" value="0" readonly>
+                        <input type="number" class="form-control bg-light" name="easy_questions" id="global_easy" value="{{ exam.easy_questions }}" readonly>
                     </div>
                 </div>
                 <div class="col-md-4">
                     <div class="mb-3">
                         <label class="form-label">Average Questions</label>
-                        <input type="number" class="form-control bg-light" name="average_questions" id="global_avg" value="0" readonly>
+                        <input type="number" class="form-control bg-light" name="average_questions" id="global_avg" value="{{ exam.average_questions }}" readonly>
                     </div>
                 </div>
                 <div class="col-md-4">
                     <div class="mb-3">
                         <label class="form-label">Difficult Questions</label>
-                        <input type="number" class="form-control bg-light" name="difficult_questions" id="global_diff" value="0" readonly>
+                        <input type="number" class="form-control bg-light" name="difficult_questions" id="global_diff" value="{{ exam.difficult_questions }}" readonly>
                     </div>
                 </div>
             </div>
             
             <div class="d-flex justify-content-between align-items-center mt-4 mb-3">
                 <h4 class="mb-0">Chapters & Difficulty Distribution</h4>
-                <button type="button" id="addChapterBtn" class="btn btn-primary">
+                <button type="button" id="addChapterBtn" class="btn btn-primary btn-sm">
                     <i class="fas fa-plus me-1"></i> Add Custom Chapter
                 </button>
             </div>
@@ -146,111 +149,61 @@
                         </tr>
                     </thead>
                     <tbody id="chaptersBody">
+                        <!-- Will be populated by JS or pre-rendered -->
+                        {% if assigned_chapters %}
+                            {% for ch in assigned_chapters %}
+                            <tr class="chapter-row table-primary" style="cursor: pointer;">
+                                <td class="text-center">
+                                    <input type="checkbox" class="form-check-input chapter-checkbox" name="chapters" value="{{ ch.chapter_id }}" checked>
+                                </td>
+                                <td>{{ ch.chapter_name }} (Ch {{ ch.chapter_number }})</td>
+                                <td>
+                                    <input type="number" class="form-control form-control-sm chapter-diff-input" name="easy_count_{{ ch.chapter_id }}" value="{{ ch.easy_count }}" min="0" step="1" onclick="event.stopPropagation();">
+                                </td>
+                                <td>
+                                    <input type="number" class="form-control form-control-sm chapter-diff-input" name="avg_count_{{ ch.chapter_id }}" value="{{ ch.average_count }}" min="0" step="1" onclick="event.stopPropagation();">
+                                </td>
+                                <td>
+                                    <input type="number" class="form-control form-control-sm chapter-diff-input" name="diff_count_{{ ch.chapter_id }}" value="{{ ch.difficult_count }}" min="0" step="1" onclick="event.stopPropagation();">
+                                </td>
+                                <td class="text-center">
+                                    <button type="button" class="btn btn-sm btn-outline-danger remove-chapter-btn" title="Remove Chapter">
+                                        <i class="fas fa-times"></i>
+                                    </button>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        {% else %}
                         <tr>
                             <td colspan="6" class="text-center text-muted">Please select a subject first</td>
                         </tr>
+                        {% endif %}
                     </tbody>
                 </table>
-                <div class="text-muted small mt-2">Select chapters from the list or add custom ones using the button above.</div>
             </div>
             
-
             <div class="mt-4">
-                <button type="submit" class="btn btn-primary btn-lg">
-                    <i class="fas fa-save"></i> Create Examination
+                <button type="submit" class="btn btn-primary px-5">
+                    <i class="fas fa-save me-1"></i> Update Examination
                 </button>
+                <a href="{{ url_for('state_admin.create_examination') }}" class="btn btn-link">Cancel</a>
             </div>
         </form>
     </div>
 </div>
 
-<h3 class="mt-5 mb-3">Manage Examinations</h3>
-<div class="card shadow-sm mb-4">
-    <div class="card-body p-0">
-        <div class="table-responsive">
-            <table class="table table-hover mb-0">
-                <thead class="table-light">
-                    <tr>
-                        <th>Exam Name</th>
-                        <th>Class</th>
-                        <th>Subject</th>
-                        <th>Max Score</th>
-                        <th>T / S / P</th>
-                        <th>Duration</th>
-                        <th>Dates</th>
-                        <th>Status</th>
-                        <th>Actions</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for exam in exams %}
-                    <tr>
-                        <td><strong>{{ exam.exam_name }}</strong></td>
-                        <td>{{ exam.class_name }}</td>
-                        <td>{{ exam.subject_name }}</td>
-                        <td>{{ exam.max_score }}</td>
-                        <td>
-                            <span class="badge bg-info text-dark">{{ exam.total_theory_questions }}</span> / 
-                            <span class="badge bg-primary">{{ exam.total_short_answer_questions }}</span> / 
-                            <span class="badge bg-warning text-dark">{{ exam.total_practical_questions }}</span>
-                        </td>
-                        <td>{{ exam.duration_minutes }} mins</td>
-                        <td>{{ exam.start_date }} to {{ exam.end_date }}</td>
-                        <td>
-                            {% if exam.status == 'draft' %}
-                            <span class="badge bg-secondary">Draft</span>
-                            {% elif exam.status == 'published' %}
-                            <span class="badge bg-primary">Published</span>
-                            {% elif exam.status == 'ongoing' %}
-                            <span class="badge bg-success">Ongoing</span>
-                            {% else %}
-                            <span class="badge bg-dark">Completed</span>
-                            {% endif %}
-                        </td>
-                        <td>
-                            <div class="d-flex gap-2 flex-wrap">
-                                <a href="{{ url_for('state_admin.exam_questions', exam_id=exam.id) }}" class="btn btn-sm btn-outline-info" title="View / Manage Questions">
-                                    <i class="fas fa-question-circle"></i> Questions
-                                </a>
-                                {% if exam.status == 'draft' %}
-                                <a href="{{ url_for('state_admin.edit_examination', exam_id=exam.id) }}" class="btn btn-sm btn-outline-primary" title="Edit Examination">
-                                    <i class="fas fa-edit"></i> Edit
-                                </a>
-                                <form action="{{ url_for('state_admin.publish_examination', exam_id=exam.id) }}" method="POST" class="d-inline">
-                                    <button type="submit" class="btn btn-sm btn-success" onclick="return confirm('Publishing will make this exam available for student assignment. Proceed?');">Publish</button>
-                                </form>
-                                {% endif %}
-                                <form action="{{ url_for('state_admin.delete_examination', exam_id=exam.id) }}" method="POST" class="d-inline">
-                                    <button type="submit" class="btn btn-sm btn-danger" onclick="return confirm('Are you sure you want to delete this examination? This will also delete all associated questions, assignments, and student submissions. This cannot be undone.');"><i class="fas fa-trash"></i> Delete</button>
-                                </form>
-                            </div>
-                        </td>
-
-                    </tr>
-                    {% else %}
-                    <tr>
-                        <td colspan="7" class="text-center py-4 text-muted">No examinations found.</td>
-                    </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
-        </div>
-    </div>
-</div>
 {% endblock %}
 
 {% block extra_js %}
 <script>
 $(document).ready(function() {
     function attachChapterHandlers(row) {
-        // Handle chapter row click to toggle checkbox
         row.click(function(e) {
             if ($(e.target).is('input') || $(e.target).closest('.remove-chapter-btn').length) return;
             let cb = $(this).find('.chapter-checkbox');
             cb.prop('checked', !cb.is(':checked')).trigger('change');
         });
 
-        // Handle chapter checkbox toggling
         row.find('.chapter-checkbox').change(function() {
             let r = $(this).closest('tr');
             if ($(this).is(':checked')) {
@@ -261,7 +214,6 @@ $(document).ready(function() {
             updateGlobalDifficultyTotals();
         });
 
-        // Auto-check checkbox if values are entered
         row.find('.chapter-diff-input').on('input', function() {
             let r = $(this).closest('tr');
             let cb = r.find('.chapter-checkbox');
@@ -297,25 +249,33 @@ $(document).ready(function() {
         $('#global_diff').val(totalDiff);
     }
 
-    // Initialize handlers for existing rows (if any)
+    // Initialize handlers for pre-rendered rows
     $('.chapter-row').each(function() {
         attachChapterHandlers($(this));
     });
 
-    // Handle subject change to load chapters dynamically
+    let initialSubjectId = $('#subjectSelect').val();
+
+    // Handle subject change
     $('#subjectSelect').change(function() {
         let subjectId = $(this).val();
+        
+        // If we are on the initial subject, don't wipe everything unless it's a real change
+        // Wait, if the user manually re-selects the same subject, it should probably reload?
+        // Let's just reload if it's different from the initial load subject.
+        
         if (!subjectId) {
             $('#chaptersBody').html('<tr><td colspan="6" class="text-center text-muted">Please select a subject first</td></tr>');
             return;
         }
 
+        // Show loading
         $('#chaptersBody').html('<tr><td colspan="6" class="text-center text-muted"><i class="fas fa-spinner fa-spin me-1"></i> Loading chapters...</td></tr>');
 
         $.get("{{ url_for('state_admin.get_chapters', subject_id=0) }}".replace('0', subjectId), function(chapters) {
             let html = '';
             if (chapters.length === 0) {
-                html = '<tr><td colspan="6" class="text-center text-muted">No pre-defined chapters found. Click "Add Custom Chapter" to define your own.</td></tr>';
+                html = '<tr><td colspan="6" class="text-center text-muted">No pre-defined chapters found.</td></tr>';
             } else {
                 chapters.forEach(function(ch) {
                     html += `
@@ -344,7 +304,6 @@ $(document).ready(function() {
             }
             $('#chaptersBody').html(html);
             
-            // Re-attach handlers to new rows
             $('#chaptersBody .chapter-row').each(function() {
                 attachChapterHandlers($(this));
             });
@@ -352,13 +311,12 @@ $(document).ready(function() {
         });
     });
 
-    // Add custom chapter row
+    // Custom chapters logic (same as create_examination)
     let customChapterCount = 0;
     $('#addChapterBtn').click(function() {
         let subjectId = $('#subjectSelect').val();
         if (!subjectId) {
-            alert('Please select a Subject first before adding custom chapters.');
-            $('#subjectSelect').focus();
+            alert('Please select a Subject first.');
             return;
         }
         customChapterCount++;
@@ -391,7 +349,6 @@ $(document).ready(function() {
             </tr>
         `;
         
-        // Remove "No chapters found" message if present
         if ($('#chaptersBody .text-muted').length > 0) {
             $('#chaptersBody').empty();
         }
@@ -402,29 +359,15 @@ $(document).ready(function() {
         newRow.find('input[type="text"]').focus();
     });
 
-    // Handle removal of chapters
     $(document).on('click', '.remove-chapter-btn', function(e) {
         e.stopPropagation();
-        if (confirm('Are you sure you want to remove this chapter from the list?')) {
-            let row = $(this).closest('tr');
-            row.fadeOut(300, function() {
-                $(this).remove();
-                updateGlobalDifficultyTotals();
-                
-                // Show message if all chapters are removed
-                if ($('#chaptersBody .chapter-row').length === 0) {
-                    $('#chaptersBody').html('<tr><td colspan="6" class="text-center text-muted">No chapters selected. Click "Add Custom Chapter" or re-select Subject.</td></tr>');
-                }
-            });
-        }
+        let row = $(this).closest('tr');
+        row.fadeOut(300, function() {
+            $(this).remove();
+            updateGlobalDifficultyTotals();
+        });
     });
 
-    // Trigger subject change on load to populate chapters if subject is pre-selected
-    if ($('#subjectSelect').val()) {
-        $('#subjectSelect').trigger('change');
-    }
-
-    // Form validation: ensure selected chapters have at least one question
     $('#examForm').submit(function(e) {
         let checkedChapters = $('.chapter-checkbox:checked');
         if (checkedChapters.length === 0) {
@@ -441,14 +384,13 @@ $(document).ready(function() {
             let diff = parseInt(row.find('.chapter-diff-input').eq(2).val()) || 0;
             
             if (easy + avg + diff === 0) {
-                let chapterName = row.find('input[name^="custom_chapter_names"]').val() || row.find('td:eq(1)').text();
-                alert('Please set at least one question count for selected chapter: ' + chapterName.trim());
                 valid = false;
                 return false;
             }
         });
         
         if (!valid) {
+            alert('Please set at least one question count for each selected chapter.');
             e.preventDefault();
             return false;
         }

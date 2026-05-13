@@ -1,0 +1,129 @@
+{% extends "base.html" %}
+
+{% block title %}Revaluation Report - State Admin{% endblock %}
+
+{% block sidebar %}
+    {% include 'state_admin/sidebar.html' %}
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
+        <h1 class="h2">Revaluation Status Report</h1>
+        <div class="btn-toolbar mb-2 mb-md-0">
+            <button type="button" class="btn btn-sm btn-outline-primary" onclick="window.print()">
+                <i class="fas fa-print me-1"></i> Print Report
+            </button>
+        </div>
+    </div>
+
+    <!-- Filters -->
+    <div class="card shadow-sm border-0 mb-4 bg-light">
+        <div class="card-body">
+            <form method="GET" class="row g-3 align-items-end">
+                <div class="col-md-4">
+                    <label class="form-label small fw-bold">Filter by Examination</label>
+                    <select name="exam_id" class="form-select">
+                        <option value="">All Examinations</option>
+                        {% for exam in exams %}
+                        <option value="{{ exam.id }}" {% if selected_exam == exam.id|string %}selected{% endif %}>{{ exam.exam_name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-2">
+                    <button type="submit" class="btn btn-primary w-100">
+                        <i class="fas fa-filter me-1"></i> Filter
+                    </button>
+                </div>
+                <div class="col-md-2">
+                    <a href="{{ url_for('state_admin.revaluation_report') }}" class="btn btn-outline-secondary w-100">Reset</a>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <div class="card shadow-sm border-0">
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-hover align-middle mb-0">
+                    <thead class="bg-light">
+                        <tr>
+                            <th class="ps-4">Student Details</th>
+                            <th>Examination</th>
+                            <th>Original Score</th>
+                            <th>Updated Score</th>
+                            <th>Difference</th>
+                            <th>Revaluator & Date</th>
+                            <th class="pe-4">Remarks</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for rev in revaluations %}
+                        <tr>
+                            <td class="ps-4">
+                                <div class="fw-bold">{{ rev.student_name }}</div>
+                                <div class="small text-muted">{{ rev.student_reg }}</div>
+                            </td>
+                            <td>
+                                <div>{{ rev.exam_name }}</div>
+                                <div class="small text-muted text-truncate" style="max-width: 200px;" title="{{ rev.question_text }}">
+                                    {{ rev.question_text }}
+                                </div>
+                            </td>
+                            <td class="text-center">
+                                <span class="badge bg-secondary-soft text-secondary border border-secondary-soft fs-6">
+                                    {{ rev.initial_score if rev.initial_score is not none else rev.score_obtained }}
+                                </span>
+                            </td>
+                            <td class="text-center">
+                                <span class="badge bg-primary-soft text-primary border border-primary-soft fs-6">
+                                    {{ rev.score_obtained }}
+                                </span>
+                            </td>
+                            <td class="text-center">
+                                {% set diff = rev.score_obtained - (rev.initial_score if rev.initial_score is not none else rev.score_obtained) %}
+                                {% if diff > 0 %}
+                                    <span class="text-success fw-bold"><i class="fas fa-caret-up me-1"></i>+{{ diff }}</span>
+                                {% elif diff < 0 %}
+                                    <span class="text-danger fw-bold"><i class="fas fa-caret-down me-1"></i>{{ diff }}</span>
+                                {% else %}
+                                    <span class="text-muted">0</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                <div class="small fw-bold">{{ rev.revaluator_name }}</div>
+                                <div class="small text-muted">{{ rev.revaluation_time.strftime('%Y-%m-%d %H:%M') if rev.revaluation_time }}</div>
+                            </td>
+                            <td class="pe-4">
+                                <div class="small text-muted italic" style="max-width: 250px; white-space: normal;">
+                                    "{{ rev.revaluation_remarks or 'No remarks provided.' }}"
+                                </div>
+                            </td>
+                        </tr>
+                        {% else %}
+                        <tr>
+                            <td colspan="7" class="text-center py-5 text-muted">
+                                <i class="fas fa-info-circle me-2"></i> No revaluation records found for the selected filters.
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+    .bg-secondary-soft { background-color: #f1f5f9; color: #475569; }
+    .border-secondary-soft { border-color: #e2e8f0 !important; }
+    .bg-primary-soft { background-color: #eff6ff; color: #2563eb; }
+    .border-primary-soft { border-color: #dbeafe !important; }
+    .badge { padding: 0.5em 0.8em; }
+    @media print {
+        .btn-toolbar, .card.bg-light, .sidebar, .navbar { display: none !important; }
+        .card { border: none !important; box-shadow: none !important; }
+        body { background: white !important; }
+    }
+</style>
+{% endblock %}

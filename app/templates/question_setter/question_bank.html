@@ -198,6 +198,12 @@
                         <div class="col-12">
                             <label class="form-label">Question Image (Optional)</label>
                             <input type="file" name="question_image" class="form-control" accept="image/*">
+                            <div class="form-text">Formats: jpg, png, gif.</div>
+                        </div>
+                        <div class="col-12" id="resourceFileContainer" style="display: none;">
+                            <label class="form-label">Supporting Resource File (Optional)</label>
+                            <input type="file" name="resource_file" class="form-control">
+                            <div class="form-text">Formats: any (zip, pdf, docx, etc.). For students to download.</div>
                         </div>
                         
                         <div id="optionsSection">
@@ -291,8 +297,10 @@ $(document).ready(function() {
     $('#qTypeSelect').change(function() {
         if ($(this).val() === 'practical') {
             $('#optionsSection').hide();
+            $('#resourceFileContainer').show();
         } else {
             $('#optionsSection').show();
+            $('#resourceFileContainer').hide();
         }
     });
 
@@ -321,6 +329,21 @@ $(document).ready(function() {
             
             if (q.has_image) {
                 html += `<div class="text-center mb-4"><img src="/files/question/${q.id}" class="img-fluid rounded border" style="max-height: 300px;"></div>`;
+            }
+
+            if (q.has_resource) {
+                html += `
+                    <div class="alert alert-light border d-flex align-items-center mb-4">
+                        <i class="fas fa-file-archive fa-2x me-3 text-primary"></i>
+                        <div class="flex-grow-1">
+                            <div class="fw-bold">Supporting Resource File</div>
+                            <div class="small text-muted">${q.resource_name}</div>
+                        </div>
+                        <a href="/files/resource/${q.id}" class="btn btn-sm btn-primary">
+                            <i class="fas fa-download me-1"></i> Download
+                        </a>
+                    </div>
+                `;
             }
             
             if ((q.question_type === 'theory' || q.question_type === 'short_answer') && options && options.length > 0) {

@@ -58,7 +58,10 @@
                     
                     <div class="question-area flex-grow-1">
                         {% for question in questions %}
-                        <div class="question-card-fixed {% if not loop.first %}d-none{% endif %}" id="question-card-{{ loop.index0 }}" data-question-index="{{ loop.index0 }}">
+                        <div class="question-card-fixed {% if not loop.first %}d-none{% endif %}" id="question-card-{{ loop.index0 }}" 
+                             data-question-index="{{ loop.index0 }}" 
+                             data-question-type="{{ question.question_type }}" 
+                             data-correct-count="{{ question.correct_count }}">
                             <div class="question-card-body">
                                 <div class="d-flex justify-content-between align-items-center mb-3">
                                     <h5 class="mb-0 fw-bold text-primary">Question {{ loop.index }}</h5>
@@ -117,7 +120,13 @@
                                 
                                 <div class="mt-3">
                                     <small class="text-muted"><i class="fas fa-info-circle me-1"></i> 
-                                        {% if question.question_type == 'short_answer' %}Multiple choices may be correct.{% elif question.is_multiple_correct %}Select all that apply.{% else %}Select one correct option.{% endif %}
+                                        {% if question.question_type == 'short_answer' %}
+                                            Select exactly <strong>{{ question.correct_count }}</strong> option{{ 's' if question.correct_count > 1 else '' }}.
+                                        {% elif question.is_multiple_correct %}
+                                            Select all that apply.
+                                        {% else %}
+                                            Select one correct option.
+                                        {% endif %}
                                     </small>
                                 </div>
                             </div>
@@ -253,7 +262,30 @@ document.addEventListener("visibilitychange", function() {
     }
 });
 
+// Malpractice detection suppression during internal alerts/confirmations
+let isInternalAlert = false;
+const originalAlert = window.alert;
+const originalConfirm = window.confirm;
+
+window.alert = function(msg) {
+    isInternalAlert = true;
+    originalAlert(msg);
+    // Use a timeout to ensure any pending blur events are ignored
+    setTimeout(() => { isInternalAlert = false; }, 500);
+};
+
+window.confirm = function(msg) {
+    isInternalAlert = true;
+    const res = originalConfirm(msg);
+    // Use a timeout to ensure any pending blur events are ignored
+    setTimeout(() => { isInternalAlert = false; }, 500);
+    return res;
+};
+
 window.addEventListener('blur', function() {
+    // Ignore blur events if they are triggered by our own alerts or confirmation dialogs
+    if (isInternalAlert) return;
+    
     // Only trigger if we aren't already handling a violation
     // and the document isn't already hidden (to avoid double counts)
     if (!document.hidden) {
@@ -474,7 +506,21 @@ function confirmSubmit() {
 }
 
 // ---- Auto-save on option change with response validation ----
-$(document).on('change', 'input.form-check-input', function() {
+$(document).on('change', 'input.form-check-input', function(e) {
+    let questionCard = $(this).closest('.question-card-fixed');
+    let questionType = questionCard.data('question-type');
+    let correctCount = parseInt(questionCard.data('correct-count')) || 1;
+    let checkedCount = questionCard.find('input.form-check-input:checked').length;
+    
+    // Enforce selection limit for short answer questions
+    if (questionType === 'short_answer' && $(this).is(':checked')) {
+        if (checkedCount > correctCount) {
+            $(this).prop('checked', false);
+            alert(`For this question, you can select only up to ${correctCount} option${correctCount > 1 ? 's' : ''}.`);
+            return;
+        }
+    }
+
     updateProgress();
     
     // Highlight selected option

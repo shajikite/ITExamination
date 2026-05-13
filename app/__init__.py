@@ -16,6 +16,7 @@ def create_app():
     from app.routes.invigilator import invigilator_bp
     from app.routes.student import student_bp
     from app.routes.files import files_bp
+    from app.routes.revaluator import revaluator_bp
     
     app.register_blueprint(auth_bp, url_prefix='/auth')
     app.register_blueprint(state_admin_bp, url_prefix='/state-admin')
@@ -24,6 +25,7 @@ def create_app():
     app.register_blueprint(invigilator_bp, url_prefix='/invigilator')
     app.register_blueprint(student_bp, url_prefix='/student')
     app.register_blueprint(files_bp, url_prefix='/files')
+    app.register_blueprint(revaluator_bp, url_prefix='/revaluator')
     
     @app.context_processor
     def inject_invigilator_stats():

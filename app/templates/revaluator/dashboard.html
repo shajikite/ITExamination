@@ -1,0 +1,145 @@
+{% extends "base.html" %}
+
+{% block sidebar %}
+<ul class="nav flex-column">
+    <li class="nav-item">
+        <a class="nav-link active" href="{{ url_for('revaluator.dashboard') }}">
+            <i class="fas fa-tachometer-alt"></i> Dashboard
+        </a>
+    </li>
+</ul>
+{% endblock %}
+
+{% block content %}
+<div class="dashboard-container">
+    <header class="dashboard-header">
+        <div class="header-left">
+            <h1>Revaluator Dashboard</h1>
+            <p>Welcome, {{ session['full_name'] }}. Manage your assigned re-evaluations below.</p>
+        </div>
+    </header>
+
+    <div class="stats-grid">
+        <div class="stat-card">
+            <div class="stat-icon">📚</div>
+            <div class="stat-info">
+                <h3>Assigned Exams</h3>
+                <p class="stat-number">{{ exams|length }}</p>
+            </div>
+        </div>
+    </div>
+
+    <section class="section-card">
+        <h2>Your Assigned Examinations</h2>
+        <div class="table-responsive">
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th>Exam Name</th>
+                        <th>Class</th>
+                        <th>Subject</th>
+                        <th>Status</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for exam in exams %}
+                    <tr>
+                        <td><strong>{{ exam.exam_name }}</strong></td>
+                        <td>{{ exam.class_name }}</td>
+                        <td>{{ exam.subject_name }}</td>
+                        <td>
+                            <span class="status-badge {{ exam.status }}">
+                                {{ exam.status|title }}
+                            </span>
+                        </td>
+                        <td>
+                            <a href="{{ url_for('revaluator.exam_submissions', exam_id=exam.id) }}" class="btn btn-primary btn-sm">
+                                View Submissions
+                            </a>
+                        </td>
+                    </tr>
+                    {% else %}
+                    <tr>
+                        <td colspan="5" class="text-center">No examinations assigned to you yet.</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </section>
+</div>
+
+<style>
+    .dashboard-container {
+        padding: 2rem;
+        max-width: 1200px;
+        margin: 0 auto;
+    }
+    .dashboard-header {
+        margin-bottom: 2rem;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+    .header-left h1 {
+        font-size: 2.5rem;
+        color: var(--primary-color);
+        margin-bottom: 0.5rem;
+    }
+    .header-left p {
+        color: #64748b;
+        font-size: 1.1rem;
+    }
+    .stats-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+        gap: 1.5rem;
+        margin-bottom: 2rem;
+    }
+    .stat-card {
+        background: white;
+        padding: 1.5rem;
+        border-radius: 1rem;
+        box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1);
+        display: flex;
+        align-items: center;
+        gap: 1rem;
+    }
+    .stat-icon {
+        font-size: 2.5rem;
+        background: #f1f5f9;
+        padding: 0.5rem;
+        border-radius: 0.75rem;
+    }
+    .stat-info h3 {
+        font-size: 0.875rem;
+        color: #64748b;
+        margin-bottom: 0.25rem;
+    }
+    .stat-number {
+        font-size: 1.5rem;
+        font-weight: 700;
+        color: #1e293b;
+    }
+    .section-card {
+        background: white;
+        padding: 2rem;
+        border-radius: 1rem;
+        box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1);
+    }
+    .section-card h2 {
+        margin-bottom: 1.5rem;
+        color: #1e293b;
+    }
+    .status-badge {
+        padding: 0.25rem 0.75rem;
+        border-radius: 1rem;
+        font-size: 0.875rem;
+        font-weight: 500;
+    }
+    .status-badge.ongoing { background: #dcfce7; color: #166534; }
+    .status-badge.published { background: #dbeafe; color: #1e40af; }
+    .status-badge.draft { background: #f1f5f9; color: #475569; }
+</style>
+{% endblock %}

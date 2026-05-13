@@ -85,7 +85,8 @@ def attend_theory(student_exam_id):
     questions_raw = query_db('''
         SELECT q.*, string_agg(qo.option_text, '|||' ORDER BY qo.option_order) as options,
                string_agg(qo.id::text, ',' ORDER BY qo.option_order) as option_ids,
-               string_agg(qo.option_order, ',' ORDER BY qo.option_order) as option_orders
+               string_agg(qo.option_order, ',' ORDER BY qo.option_order) as option_orders,
+               (SELECT COUNT(*) FROM question_options WHERE question_id = q.id AND is_correct = TRUE) as correct_count
         FROM questions q
         LEFT JOIN question_options qo ON q.id = qo.question_id
         WHERE q.exam_id = %s AND q.question_type IN ('theory', 'short_answer') AND q.language = %s
@@ -221,7 +222,10 @@ def submit_theory():
             question_id = key.replace('question_', '')
             selected_options = ','.join(values)  # Join all selected option IDs (fixes multi-select)
             
-            # Check if correct
+            # Check correctness and calculate score
+            question = query_db('SELECT question_type, max_score FROM questions WHERE id=%s', 
+                              (question_id,), one=True)
+            
             correct_options = query_db('''
                 SELECT id FROM question_options 
                 WHERE question_id = %s AND is_correct = TRUE
@@ -229,14 +233,22 @@ def submit_theory():
             ''', (question_id,))
             
             correct_ids = set(str(opt['id']) for opt in correct_options)
-            selected_ids = set(selected_options.split(','))
+            selected_ids = set(selected_options.split(',')) if selected_options else set()
             
-            is_correct = correct_ids == selected_ids
-            
-            # Calculate score
-            question = query_db('SELECT max_score FROM questions WHERE id=%s', 
-                              (question_id,), one=True)
-            score = question['max_score'] if is_correct else 0
+            if question['question_type'] == 'short_answer':
+                # Partial scoring for short answer
+                total_correct = len(correct_ids)
+                if total_correct > 0:
+                    correct_selected = len(correct_ids.intersection(selected_ids))
+                    score = (correct_selected / total_correct) * question['max_score']
+                    is_correct = (correct_selected == total_correct and len(selected_ids) == total_correct)
+                else:
+                    score = 0
+                    is_correct = False
+            else:
+                # Exact match for theory (MCQ)
+                is_correct = correct_ids == selected_ids
+                score = question['max_score'] if is_correct else 0
             # Check if answer already exists
             existing = query_db('SELECT id FROM student_theory_answers WHERE student_exam_id=%s AND question_id=%s',
                               (student_exam_id, question_id), one=True)
@@ -497,7 +509,11 @@ def save_answer():
     question_id = data['question_id']
     selected_options = data.get('selected_options', '')
     
-    # Calculate correctness
+    # Calculate correctness and score
+    question = query_db('SELECT question_type, max_score FROM questions WHERE id=%s', (question_id,), one=True)
+    if not question:
+        return jsonify({'success': False, 'message': 'Question not found'}), 404
+
     correct_options = query_db('''
         SELECT id FROM question_options 
         WHERE question_id = %s AND is_correct = TRUE
@@ -507,10 +523,18 @@ def save_answer():
     correct_ids = set(str(opt['id']) for opt in correct_options)
     selected_ids = set(selected_options.split(',')) if selected_options else set()
     
-    is_correct = correct_ids == selected_ids if selected_ids else False
-    
-    question = query_db('SELECT max_score FROM questions WHERE id=%s', (question_id,), one=True)
-    score = question['max_score'] if is_correct else 0
+    if question['question_type'] == 'short_answer':
+        total_correct = len(correct_ids)
+        if total_correct > 0:
+            correct_selected = len(correct_ids.intersection(selected_ids))
+            score = (correct_selected / total_correct) * question['max_score']
+            is_correct = (correct_selected == total_correct and len(selected_ids) == total_correct)
+        else:
+            score = 0
+            is_correct = False
+    else:
+        is_correct = correct_ids == selected_ids if selected_ids else False
+        score = question['max_score'] if is_correct else 0
     
     existing = query_db('SELECT id FROM student_theory_answers WHERE student_exam_id=%s AND question_id=%s',
                       (student_exam_id, question_id), one=True)
@@ -549,7 +573,7 @@ def save_answers_batch():
         if not question_id:
             continue
         
-        # Calculate correctness
+        # Calculate correctness and score
         correct_options = query_db('''
             SELECT id FROM question_options 
             WHERE question_id = %s AND is_correct = TRUE
@@ -559,12 +583,18 @@ def save_answers_batch():
         correct_ids = set(str(opt['id']) for opt in correct_options)
         selected_ids = set(selected_options.split(',')) if selected_options else set()
         
-        is_correct = correct_ids == selected_ids if selected_ids else False
-        
-        question = query_db('SELECT max_score FROM questions WHERE id=%s', (question_id,), one=True)
-        if not question:
-            continue
-        score = question['max_score'] if is_correct else 0
+        if question['question_type'] == 'short_answer':
+            total_correct = len(correct_ids)
+            if total_correct > 0:
+                correct_selected = len(correct_ids.intersection(selected_ids))
+                score = (correct_selected / total_correct) * question['max_score']
+                is_correct = (correct_selected == total_correct and len(selected_ids) == total_correct)
+            else:
+                score = 0
+                is_correct = False
+        else:
+            is_correct = correct_ids == selected_ids if selected_ids else False
+            score = question['max_score'] if is_correct else 0
         
         existing = query_db('SELECT id FROM student_theory_answers WHERE student_exam_id=%s AND question_id=%s',
                           (student_exam_id, question_id), one=True)

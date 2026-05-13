@@ -46,6 +46,19 @@ def run_migrations(app):
         "ALTER TABLE question_options ADD COLUMN IF NOT EXISTS option_image_mimetype VARCHAR(50)",
         # Add theory_phase to student_exams for step-by-step flow
         "ALTER TABLE student_exams ADD COLUMN IF NOT EXISTS theory_phase INTEGER DEFAULT 1",
+        # Add resource file columns to questions
+        "ALTER TABLE questions ADD COLUMN IF NOT EXISTS resource_file_blob BYTEA",
+        "ALTER TABLE questions ADD COLUMN IF NOT EXISTS resource_file_name VARCHAR(255)",
+        # Revaluator role and assignments
+        "ALTER TABLE users DROP CONSTRAINT IF EXISTS users_user_type_check",
+        "ALTER TABLE users ADD CONSTRAINT users_user_type_check CHECK (user_type IN ('state_admin', 'question_setter', 'school_admin', 'invigilator', 'student', 'revaluator'))",
+        "CREATE TABLE IF NOT EXISTS revaluator_assignments (id SERIAL PRIMARY KEY, exam_id INTEGER REFERENCES examinations(id) ON DELETE CASCADE, user_id INTEGER REFERENCES users(id) ON DELETE CASCADE, assigned_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP)",
+        "ALTER TABLE student_practical_submissions ADD COLUMN IF NOT EXISTS revaluated_by INTEGER REFERENCES users(id) ON DELETE SET NULL",
+        "ALTER TABLE student_practical_submissions ADD COLUMN IF NOT EXISTS revaluation_time TIMESTAMP",
+        "ALTER TABLE student_practical_submissions ADD COLUMN IF NOT EXISTS revaluation_remarks TEXT",
+        "ALTER TABLE student_practical_submissions ADD COLUMN IF NOT EXISTS initial_score INTEGER",
+        "UPDATE student_practical_submissions SET initial_score = score_obtained WHERE initial_score IS NULL AND score_obtained IS NOT NULL",
+        "ALTER TABLE student_practical_submissions ADD COLUMN IF NOT EXISTS needs_revaluation BOOLEAN DEFAULT FALSE",
     ]
 
     # Cascade FK migrations — each is a pair (drop old constraint, add new with CASCADE)

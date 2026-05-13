@@ -110,6 +110,15 @@
                                             <p class="fs-4 text-dark mb-4" style="white-space: pre-wrap; line-height: 1.4;">{{ q1.question_text }}</p>
                                             {% endif %}
                                             
+                                            {% if q1.resource_file_name %}
+                                            <div class="mb-4">
+                                                <a href="{{ url_for('files.get_resource_file', question_id=q1.id) }}" class="btn btn-primary shadow-sm py-2 px-4">
+                                                    <i class="fas fa-file-download me-2"></i> Download Supporting Resource
+                                                    <span class="d-block small mt-1 opacity-75">({{ q1.resource_file_name }})</span>
+                                                </a>
+                                            </div>
+                                            {% endif %}
+                                            
                                             {% if q1.image_blob %}
                                             <div class="task-image-wrap mb-4 text-center">
                                                 <img src="{{ url_for('files.get_question_image', question_id=q1.id) }}" 
@@ -158,6 +167,15 @@
                                             <h6 class="fw-bold mb-3 text-primary fs-5">Alternative B Description:</h6>
                                             {% if q2.question_text %}
                                             <p class="fs-4 text-dark mb-4" style="white-space: pre-wrap; line-height: 1.4;">{{ q2.question_text }}</p>
+                                            {% endif %}
+
+                                            {% if q2.resource_file_name %}
+                                            <div class="mb-4">
+                                                <a href="{{ url_for('files.get_resource_file', question_id=q2.id) }}" class="btn btn-primary shadow-sm py-2 px-4">
+                                                    <i class="fas fa-file-download me-2"></i> Download Supporting Resource
+                                                    <span class="d-block small mt-1 opacity-75">({{ q2.resource_file_name }})</span>
+                                                </a>
+                                            </div>
                                             {% endif %}
                                             
                                             {% if q2.image_blob %}

@@ -106,6 +106,9 @@ CREATE TABLE questions (
     uploaded_by INTEGER REFERENCES users(id),
     chapter_id INTEGER REFERENCES chapters(id) ON DELETE SET NULL,
     language VARCHAR(20) DEFAULT 'English' CHECK (language IN ('English', 'Malayalam', 'Kannada', 'Tamil')),
+    resource_file_blob BYTEA,
+    resource_file_name VARCHAR(255),
+    resource_file_mimetype VARCHAR(50),
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 

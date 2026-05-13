@@ -1,0 +1,106 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container py-4">
+    <div class="row justify-content-center">
+        <div class="col-lg-10">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <div>
+                    <h1 class="h3 mb-0">Re-evaluation: {{ submission.student_name }}</h1>
+                    <p class="text-muted small">Register Number: {{ submission.username }}</p>
+                </div>
+                <a href="{{ url_for('revaluator.exam_submissions', exam_id=submission.exam_id) }}" class="btn btn-outline-secondary">
+                    <i class="fas fa-arrow-left"></i> Back to Submissions
+                </a>
+            </div>
+
+            <div class="row g-4">
+                <!-- Submission Details -->
+                <div class="col-md-8">
+                    <div class="card shadow-sm border-0 mb-4">
+                        <div class="card-header bg-white py-3">
+                            <h5 class="card-title mb-0">Question & Submission</h5>
+                        </div>
+                        <div class="card-body">
+                            <div class="mb-4">
+                                <h6 class="text-secondary text-uppercase small fw-bold">Question:</h6>
+                                <div class="p-3 bg-light rounded border">
+                                    <div class="mb-3">{{ submission.question_text|safe }}</div>
+                                    
+                                    {% if submission.has_image %}
+                                    <div class="mb-3 text-center">
+                                        <img src="{{ url_for('files.get_question_image', question_id=submission.q_id) }}" 
+                                             class="img-fluid rounded border shadow-sm" alt="Question Image"
+                                             style="max-height: 300px; cursor: pointer;" onclick="window.open(this.src)">
+                                    </div>
+                                    {% endif %}
+
+                                    {% if submission.has_resource %}
+                                    <div class="mb-2">
+                                        <a href="{{ url_for('files.get_resource_file', question_id=submission.q_id) }}" class="btn btn-sm btn-outline-primary">
+                                            <i class="fas fa-file-download me-1"></i> Download Resource: {{ submission.resource_file_name }}
+                                        </a>
+                                    </div>
+                                    {% endif %}
+                                </div>
+                            </div>
+
+                            <div class="mb-4">
+                                <h6 class="text-secondary text-uppercase small fw-bold">Submitted File:</h6>
+                                <div class="d-flex align-items-center p-3 bg-white border rounded">
+                                    <div class="flex-grow-1">
+                                        <i class="far fa-file-alt fa-2x text-primary me-3"></i>
+                                        <strong>{{ submission.file_name }}</strong>
+                                    </div>
+                                    <a href="{{ url_for('revaluator.download_file', submission_id=submission.id) }}" class="btn btn-success">
+                                        <i class="fas fa-download"></i> Download File
+                                    </a>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Score Adjustment -->
+                <div class="col-md-4">
+                    <div class="card shadow-sm border-0 border-top border-4 border-primary">
+                        <div class="card-header bg-white py-3">
+                            <h5 class="card-title mb-0">Score Adjustment</h5>
+                        </div>
+                        <div class="card-body">
+                            <div class="alert alert-info py-2 small">
+                                <i class="fas fa-info-circle me-1"></i> Original score by invigilator: 
+                                <strong>{{ submission.score_obtained if submission.score_obtained is not none else 'N/A' }}</strong>
+                            </div>
+
+                            <form method="POST">
+                                <div class="mb-3">
+                                    <label class="form-label fw-bold">New Score (Max: {{ submission.q_max_score }})</label>
+                                    <input type="number" step="0.5" name="score" class="form-control form-control-lg text-center" 
+                                           value="{{ submission.score_obtained or 0 }}" min="0" max="{{ submission.q_max_score }}" required>
+                                </div>
+
+                                <div class="mb-3">
+                                    <label class="form-label fw-bold">Revaluation Remarks</label>
+                                    <textarea name="remarks" class="form-control" rows="4" placeholder="Reason for score modification...">{{ submission.revaluation_remarks or '' }}</textarea>
+                                </div>
+
+                                <button type="submit" class="btn btn-primary w-100 btn-lg shadow-sm" onclick="return confirm('Are you sure you want to update this score?')">
+                                    <i class="fas fa-save me-1"></i> Update Score
+                                </button>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+    .card { border-radius: 1rem; }
+    .form-control:focus { box-shadow: none; border-color: var(--primary-color); }
+    .btn-primary { background-color: var(--primary-color); border: none; }
+    .btn-primary:hover { opacity: 0.9; }
+</style>
+{% endblock %}

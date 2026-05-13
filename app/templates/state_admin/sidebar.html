@@ -1,0 +1,72 @@
+<ul class="nav flex-column">
+    <li class="nav-item">
+        <a class="nav-link active" href="{{ url_for('state_admin.dashboard') }}">
+            <i class="fas fa-tachometer-alt"></i> Dashboard
+        </a>
+    </li>
+    <li class="nav-item">
+        <a class="nav-link" href="{{ url_for('state_admin.manage_schools') }}">
+            <i class="fas fa-school"></i> Manage Schools
+        </a>
+    </li>
+    <li class="nav-item">
+        <a class="nav-link" href="{{ url_for('state_admin.create_school_admin') }}">
+            <i class="fas fa-user-tie"></i> School Admins
+        </a>
+    </li>
+    <li class="nav-item">
+        <a class="nav-link" href="{{ url_for('state_admin.create_question_setter') }}">
+            <i class="fas fa-user-edit"></i> Question Setters
+        </a>
+    </li>
+    <li class="nav-item">
+        <a class="nav-link" href="{{ url_for('state_admin.assign_question_setters') }}">
+            <i class="fas fa-user-tag"></i> Assign Question Setters
+        </a>
+    </li>
+    <li class="nav-item">
+        <a class="nav-link" href="{{ url_for('state_admin.manage_revaluators') }}">
+            <i class="fas fa-user-check"></i> Revaluators
+        </a>
+    </li>
+    <li class="nav-item">
+        <a class="nav-link" href="{{ url_for('state_admin.assign_revaluators') }}">
+            <i class="fas fa-user-tag"></i> Assign Revaluators
+        </a>
+    </li>
+    <li class="nav-item">
+        <a class="nav-link" href="{{ url_for('state_admin.revaluation_report') }}">
+            <i class="fas fa-chart-line"></i> Revaluation Report
+        </a>
+    </li>
+    <li class="nav-item">
+        <a class="nav-link" href="{{ url_for('state_admin.manage_status') }}">
+            <i class="fas fa-undo-alt"></i> Reset Status
+        </a>
+    </li>
+    <li class="nav-item">
+        <a class="nav-link" href="{{ url_for('state_admin.manage_students') }}">
+            <i class="fas fa-user-graduate"></i> Students
+        </a>
+    </li>
+    <li class="nav-item">
+        <a class="nav-link" href="{{ url_for('state_admin.create_examination') }}">
+            <i class="fas fa-file-alt"></i> Examinations
+        </a>
+    </li>
+    <li class="nav-item">
+        <a class="nav-link" href="{{ url_for('state_admin.assign_students_exam') }}">
+            <i class="fas fa-tasks"></i> Assign Students
+        </a>
+    </li>
+    <li class="nav-item">
+        <a class="nav-link" href="{{ url_for('state_admin.mark_list') }}">
+            <i class="fas fa-list-alt"></i> Mark List
+        </a>
+    </li>
+    <li class="nav-item">
+        <a class="nav-link" href="{{ url_for('state_admin.reports') }}">
+            <i class="fas fa-chart-bar"></i> Reports
+        </a>
+    </li>
+</ul>
