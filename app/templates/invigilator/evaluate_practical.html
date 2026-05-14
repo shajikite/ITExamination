@@ -127,7 +127,8 @@
                                     data-question="{{ sub.question_text|escape }}"
                                     data-qid="{{ sub.question_id }}"
                                     data-has-image="{{ sub.has_image }}"
-                                    data-resource-name="{{ sub.resource_file_name or '' }}">
+                                    data-resource-name="{{ sub.resource_file_name or '' }}"
+                                    data-value-points="{{ sub.value_points or '' }}">
                                 {% if sub.remarks %}Edit Score{% else %}Evaluate{% endif %}
                             </button>
                             {% endif %}
@@ -172,6 +173,12 @@
                             <a id="modalResourceDownload" href="#" class="btn btn-sm btn-outline-primary ms-2">
                                 <i class="fas fa-download"></i>
                             </a>
+                        </div>
+                    </div>
+                    <div id="modalValuePointsContainer" class="mt-3 d-none">
+                        <div class="alert alert-info py-2 px-3 mb-0">
+                            <h6 class="alert-heading small fw-bold mb-1"><i class="fas fa-clipboard-list me-1"></i> Value Points / Evaluation Criteria:</h6>
+                            <p id="modalValuePoints" class="small mb-0" style="white-space: pre-wrap;"></p>
                         </div>
                     </div>
                 </div>
@@ -233,6 +240,14 @@ $(document).ready(function() {
             $('#modalResourceContainer').removeClass('d-none');
         } else {
             $('#modalResourceContainer').addClass('d-none');
+        }
+
+        let valuePoints = $(this).data('value-points');
+        if (valuePoints && valuePoints.trim() !== '') {
+            $('#modalValuePoints').text(valuePoints);
+            $('#modalValuePointsContainer').removeClass('d-none');
+        } else {
+            $('#modalValuePointsContainer').addClass('d-none');
         }
         
         var evalModal = new bootstrap.Modal(document.getElementById('evaluationModal'));

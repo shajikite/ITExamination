@@ -841,6 +841,7 @@ def edit_question(question_id):
 
     if request.method == 'POST':
         question_text = request.form.get('question_text', '')
+        value_points = request.form.get('value_points', '')
         difficulty_level = request.form['difficulty_level']
         max_score = request.form['max_score']
         remove_image = request.form.get('remove_image') == '1'
@@ -888,8 +889,8 @@ def edit_question(question_id):
         language = request.form.get('language', 'English')
 
         # Construct dynamic update query based on what changed
-        fields = ["question_text=%s", "difficulty_level=%s", "max_score=%s", "language=%s"]
-        params = [question_text, difficulty_level, max_score, language]
+        fields = ["question_text=%s", "value_points=%s", "difficulty_level=%s", "max_score=%s", "language=%s"]
+        params = [question_text, value_points, difficulty_level, max_score, language]
 
         if image_changed:
             fields.append("image_blob=%s")

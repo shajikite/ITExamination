@@ -306,6 +306,13 @@
             </a>
         </div>
         {% endif %}
+
+        {% if q.value_points %}
+        <div class="mt-2 p-2 bg-light border-start border-info border-3 rounded">
+            <small class="text-info fw-bold d-block mb-1"><i class="fas fa-clipboard-list me-1"></i> Value Points / Evaluation Criteria:</small>
+            <p class="mb-0 small" style="white-space: pre-wrap;">{{ q.value_points }}</p>
+        </div>
+        {% endif %}
     </div>
 </div>
 {% endfor %}
@@ -331,7 +338,13 @@
                 <div class="modal-body">
                     <div class="mb-3">
                         <label class="form-label fw-semibold">Question Text</label>
-                        <textarea name="question_text" id="editQText" class="form-control" rows="4"></textarea>
+                        <textarea name="question_text" id="editQText" class="form-control" rows="3"></textarea>
+                    </div>
+
+                    <div class="mb-3" id="valuePointsSection">
+                        <label class="form-label fw-semibold">Value Points (For Invigilators/Revaluators)</label>
+                        <textarea name="value_points" id="editQValuePoints" class="form-control" rows="3" placeholder="Enter evaluation criteria..."></textarea>
+                        <div class="form-text small">These points are visible to examiners but hidden from students.</div>
                     </div>
                     
                     <div class="row">
@@ -490,6 +503,7 @@ const QUESTION_DATA = {
         score:      {{ q.max_score }},
         type:       {{ q.question_type | tojson }},
         language:   {{ q.language | tojson }},
+        valuePoints: {{ q.value_points | tojson }},
         hasImage:   {{ 'true' if q.has_image else 'false' }},
         hasResource: {{ 'true' if q.resource_file_blob else 'false' }},
         resourceName: {{ q.resource_file_name | tojson }},
@@ -543,6 +557,7 @@ if (editQModal) {
         if (!q) { console.error('No data for question', qid); return; }
 
         document.getElementById('editQText').value  = q.text  || '';
+        document.getElementById('editQValuePoints').value = q.valuePoints || '';
         document.getElementById('editQDiff').value  = q.difficulty || 'easy';
         document.getElementById('editQScore').value = q.score || 1;
         document.getElementById('editQLang').value  = q.language || 'English';
@@ -584,6 +599,14 @@ if (editQModal) {
             }
         } else {
             resSection.classList.add('d-none');
+        }
+
+        // Show value points section only for practical questions
+        const vpSection = document.getElementById('valuePointsSection');
+        if (q.type === 'practical') {
+            vpSection.classList.remove('d-none');
+        } else {
+            vpSection.classList.add('d-none');
         }
 
         // Reset resource inputs

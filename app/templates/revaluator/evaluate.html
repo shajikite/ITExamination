@@ -45,6 +45,15 @@
                                 </div>
                             </div>
 
+                            {% if submission.value_points %}
+                            <div class="mb-4">
+                                <h6 class="text-info text-uppercase small fw-bold"><i class="fas fa-clipboard-list me-1"></i> Value Points / Evaluation Criteria:</h6>
+                                <div class="p-3 bg-light border-start border-info border-4 rounded">
+                                    <p class="mb-0 small" style="white-space: pre-wrap;">{{ submission.value_points }}</p>
+                                </div>
+                            </div>
+                            {% endif %}
+
                             <div class="mb-4">
                                 <h6 class="text-secondary text-uppercase small fw-bold">Submitted File:</h6>
                                 <div class="d-flex align-items-center p-3 bg-white border rounded">

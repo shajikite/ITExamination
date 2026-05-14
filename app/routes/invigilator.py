@@ -150,7 +150,7 @@ def evaluate_practical():
                sp.submission_time, u.full_name as student_name, u.username,
                e.exam_name, q.max_score, sp.remarks, q.question_text,
                sp.question_id, CASE WHEN q.image_blob IS NOT NULL THEN 1 ELSE 0 END as has_image,
-               q.resource_file_name,
+               q.resource_file_name, q.value_points,
                CASE WHEN ml.status = 'finalized' THEN 1 ELSE 0 END as is_locked,
                c.class_name
         FROM student_practical_submissions sp

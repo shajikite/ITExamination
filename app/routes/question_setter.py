@@ -58,6 +58,7 @@ def upload_questions(exam_id):
         difficulty = request.form['difficulty_level']
         max_score = request.form['max_score']
         question_text = request.form.get('question_text', '')
+        value_points = request.form.get('value_points', '')
         is_multiple = request.form.get('is_multiple_correct', False)
         
         # Handle image upload
@@ -90,12 +91,12 @@ def upload_questions(exam_id):
         question_id = insert_db('''
             INSERT INTO questions 
             (exam_id, question_type, image_blob, image_mimetype, difficulty_level, 
-             max_score, question_text, is_multiple_correct, uploaded_by, language, chapter_id,
+             max_score, question_text, value_points, is_multiple_correct, uploaded_by, language, chapter_id,
              resource_file_blob, resource_file_mimetype, resource_file_name)
-            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
             RETURNING id
         ''', (exam_id, question_type, image_blob, image_mimetype, difficulty, max_score, 
-              question_text, bool(is_multiple), session['user_id'], language, chapter_id,
+              question_text, value_points, bool(is_multiple), session['user_id'], language, chapter_id,
               resource_blob, resource_mimetype, resource_filename))
         
         # Add MCQ options if theory or short_answer question
@@ -252,6 +253,7 @@ def add_to_bank():
     difficulty = request.form['difficulty_level']
     max_score = request.form['max_score']
     question_text = request.form.get('question_text', '')
+    value_points = request.form.get('value_points', '')
     is_multiple = request.form.get('is_multiple_correct', False)
     is_global = request.form.get('is_global') == 'true'
     
@@ -285,12 +287,12 @@ def add_to_bank():
     question_id = insert_db('''
         INSERT INTO questions 
         (question_type, image_blob, image_mimetype, difficulty_level, 
-         max_score, question_text, is_multiple_correct, uploaded_by, language, chapter_id, is_bank, is_global,
+         max_score, question_text, value_points, is_multiple_correct, uploaded_by, language, chapter_id, is_bank, is_global,
          resource_file_blob, resource_file_mimetype, resource_file_name)
-        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, TRUE, %s, %s, %s, %s)
+        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, TRUE, %s, %s, %s, %s)
         RETURNING id
     ''', (question_type, image_blob, image_mimetype, difficulty, max_score, 
-          question_text, bool(is_multiple), session['user_id'], language, chapter_id, is_global,
+          question_text, value_points, bool(is_multiple), session['user_id'], language, chapter_id, is_global,
           resource_blob, resource_mimetype, resource_filename))
     
     if question_type in ['theory', 'short_answer']:
@@ -324,12 +326,12 @@ def save_to_bank(question_id):
     new_q_id = insert_db('''
         INSERT INTO questions 
         (question_type, image_blob, image_mimetype, difficulty_level, 
-         max_score, question_text, is_multiple_correct, uploaded_by, language, chapter_id, is_bank, is_global,
+         max_score, question_text, value_points, is_multiple_correct, uploaded_by, language, chapter_id, is_bank, is_global,
          resource_file_blob, resource_file_mimetype, resource_file_name)
-        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, TRUE, %s, %s, %s, %s)
+        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, TRUE, %s, %s, %s, %s)
         RETURNING id
     ''', (q['question_type'], q['image_blob'], q['image_mimetype'], q['difficulty_level'], 
-          q['max_score'], q['question_text'], q['is_multiple_correct'], session['user_id'], 
+          q['max_score'], q['question_text'], q['value_points'], q['is_multiple_correct'], session['user_id'], 
           q['language'], q['chapter_id'], is_global,
           q['resource_file_blob'], q['resource_file_mimetype'], q['resource_file_name']))
     
@@ -374,12 +376,12 @@ def import_from_bank(exam_id):
     new_q_id = insert_db('''
         INSERT INTO questions 
         (exam_id, question_type, image_blob, image_mimetype, difficulty_level, 
-         max_score, question_text, is_multiple_correct, uploaded_by, language, chapter_id, is_bank,
+         max_score, question_text, value_points, is_multiple_correct, uploaded_by, language, chapter_id, is_bank,
          resource_file_blob, resource_file_mimetype, resource_file_name)
-        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, FALSE, %s, %s, %s)
+        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, FALSE, %s, %s, %s)
         RETURNING id
     ''', (exam_id, q['question_type'], q['image_blob'], q['image_mimetype'], q['difficulty_level'], 
-          q['max_score'], q['question_text'], q['is_multiple_correct'], session['user_id'], 
+          q['max_score'], q['question_text'], q['value_points'], q['is_multiple_correct'], session['user_id'], 
           q['language'], chapter_id,
           q['resource_file_blob'], q['resource_file_mimetype'], q['resource_file_name']))
     

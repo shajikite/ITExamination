@@ -109,6 +109,7 @@ CREATE TABLE questions (
     resource_file_blob BYTEA,
     resource_file_name VARCHAR(255),
     resource_file_mimetype VARCHAR(50),
+    value_points TEXT,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 

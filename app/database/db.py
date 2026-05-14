@@ -59,6 +59,7 @@ def run_migrations(app):
         "ALTER TABLE student_practical_submissions ADD COLUMN IF NOT EXISTS initial_score INTEGER",
         "UPDATE student_practical_submissions SET initial_score = score_obtained WHERE initial_score IS NULL AND score_obtained IS NOT NULL",
         "ALTER TABLE student_practical_submissions ADD COLUMN IF NOT EXISTS needs_revaluation BOOLEAN DEFAULT FALSE",
+        "ALTER TABLE questions ADD COLUMN IF NOT EXISTS value_points TEXT",
     ]
 
     # Cascade FK migrations — each is a pair (drop old constraint, add new with CASCADE)

@@ -97,6 +97,12 @@
                         <input type="file" name="resource_file" class="form-control">
                         <div class="form-text">Formats: any (zip, pdf, docx, etc.). For students to download and work on.</div>
                     </div>
+
+                    <div class="mb-3" id="valuePointsContainer" style="display: none;">
+                        <label class="form-label">Value Points (For Invigilators Only)</label>
+                        <textarea name="value_points" class="form-control" rows="3" placeholder="Enter evaluation criteria/scoring points..."></textarea>
+                        <div class="form-text text-info"><i class="fas fa-info-circle"></i> These points will be visible to Invigilators during evaluation but hidden from students.</div>
+                    </div>
                     
                     <div id="theoryOptions" style="display: none;">
                         <hr>
@@ -312,6 +318,7 @@ $(document).ready(function() {
             $('#theoryOptions').slideUp();
             $('#difficultyLevelContainer').slideUp();
             $('#resourceFileContainer').slideDown();
+            $('#valuePointsContainer').slideDown();
             $('#difficultyLevel').val('easy'); // Default for practical
             $('.option-row input').prop('required', false);
         }
@@ -484,6 +491,16 @@ function viewQuestion(id) {
                 `;
             });
             html += `</div>`;
+        }
+
+        if (q.value_points) {
+            html += `
+                <hr>
+                <div class="alert alert-info">
+                    <h6 class="alert-heading fw-bold"><i class="fas fa-clipboard-list me-2"></i>Value Points / Evaluation Criteria:</h6>
+                    <p class="mb-0 small" style="white-space: pre-wrap;">${q.value_points}</p>
+                </div>
+            `;
         }
         
         $('#questionDetailsBody').html(html);

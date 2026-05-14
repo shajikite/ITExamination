@@ -56,7 +56,7 @@ def evaluate(submission_id):
     submission = query_db('''
         SELECT sps.*, u.full_name as student_name, u.username,
                q.id as q_id, q.question_text, q.max_score as q_max_score,
-               q.resource_file_name,
+               q.resource_file_name, q.value_points,
                CASE WHEN q.image_blob IS NOT NULL THEN TRUE ELSE FALSE END as has_image,
                CASE WHEN q.resource_file_blob IS NOT NULL THEN TRUE ELSE FALSE END as has_resource,
                se.exam_id
