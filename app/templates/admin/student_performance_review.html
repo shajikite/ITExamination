@@ -1,0 +1,213 @@
+{% extends "base.html" %}
+
+{% block title %}Performance Review - {{ student.full_name }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h2 class="mb-1">Performance Review</h2>
+            <p class="text-muted">Student: <strong>{{ student.full_name }}</strong> ({{ student.username }}) | Exam: <strong>{{ exam.exam_name }}</strong></p>
+        </div>
+        <div>
+            <button onclick="window.print()" class="btn btn-outline-primary me-2">
+                <i class="fas fa-print me-2"></i>Print Report
+            </button>
+            <a href="{{ back_url }}" class="btn btn-secondary">
+                <i class="fas fa-arrow-left me-2"></i>Back
+            </a>
+        </div>
+    </div>
+
+    <!-- Stats Overview -->
+    <div class="row g-3 mb-4">
+        <div class="col-md-3">
+            <div class="card border-0 shadow-sm text-center p-3 h-100">
+                <div class="text-primary mb-2"><i class="fas fa-clock fa-2x"></i></div>
+                <h6 class="text-muted mb-1">Active Time Used</h6>
+                <h4 class="mb-0">{{ student_exam.active_time_used // 60 }}m {{ student_exam.active_time_used % 60 }}s</h4>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card border-0 shadow-sm text-center p-3 h-100">
+                <div class="text-success mb-2"><i class="fas fa-check-circle fa-2x"></i></div>
+                <h6 class="text-muted mb-1">Theory Status</h6>
+                <h4 class="mb-0 text-capitalize">{{ student_exam.theory_status }}</h4>
+                <small class="text-muted">{{ student_exam.theory_start_time.strftime('%H:%M:%S') if student_exam.theory_start_time else '-' }} to {{ student_exam.theory_end_time.strftime('%H:%M:%S') if student_exam.theory_end_time else '-' }}</small>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card border-0 shadow-sm text-center p-3 h-100">
+                <div class="text-info mb-2"><i class="fas fa-tools fa-2x"></i></div>
+                <h6 class="text-muted mb-1">Practical Status</h6>
+                <h4 class="mb-0 text-capitalize">{{ student_exam.practical_status }}</h4>
+                <small class="text-muted">{{ student_exam.practical_start_time.strftime('%H:%M:%S') if student_exam.practical_start_time else '-' }} to {{ student_exam.practical_end_time.strftime('%H:%M:%S') if student_exam.practical_end_time else '-' }}</small>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card border-0 shadow-sm text-center p-3 h-100">
+                <div class="text-warning mb-2"><i class="fas fa-star fa-2x"></i></div>
+                <h6 class="text-muted mb-1">Total Score / Max</h6>
+                <h4 class="mb-0">{{ "%.2f"|format(total_score) }} / {{ exam.max_score }}</h4>
+                <small class="badge bg-warning text-dark">{{ grade }} ({{ "%.1f"|format(percentage) }}%)</small>
+            </div>
+        </div>
+    </div>
+
+    <!-- Detailed Tabs -->
+    <div class="card border-0 shadow-sm">
+        <div class="card-header bg-white border-bottom">
+            <ul class="nav nav-tabs card-header-tabs" id="performanceTabs" role="tablist">
+                <li class="nav-item">
+                    <button class="nav-link active" id="activity-tab" data-bs-toggle="tab" data-bs-target="#activity" type="button" role="tab">Activity Log</button>
+                </li>
+                <li class="nav-item">
+                    <button class="nav-link" id="theory-tab" data-bs-toggle="tab" data-bs-target="#theory" type="button" role="tab">Theory Analysis</button>
+                </li>
+                <li class="nav-item">
+                    <button class="nav-link" id="practical-tab" data-bs-toggle="tab" data-bs-target="#practical" type="button" role="tab">Practical Submissions</button>
+                </li>
+            </ul>
+        </div>
+        <div class="card-body p-0">
+            <div class="tab-content" id="performanceTabsContent">
+                
+                <!-- Activity Log Tab -->
+                <div class="tab-pane fade show active p-4" id="activity" role="tabpanel">
+                    <div class="table-responsive">
+                        <table class="table table-hover align-middle">
+                            <thead class="bg-light">
+                                <tr>
+                                    <th style="width: 200px;">Timestamp</th>
+                                    <th style="width: 150px;">Activity</th>
+                                    <th>Details</th>
+                                    <th style="width: 120px;">IP Address</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for log in logs %}
+                                <tr class="{% if 'violation' in log.activity_type %}table-danger{% endif %}">
+                                    <td class="text-muted small">{{ log.created_at.strftime('%Y-%m-%d %H:%M:%S') }}</td>
+                                    <td>
+                                        <span class="badge {% if 'violation' in log.activity_type %}bg-danger{% elif 'submit' in log.activity_type %}bg-success{% elif 'start' in log.activity_type %}bg-primary{% else %}bg-info{% endif %} text-uppercase">
+                                            {{ log.activity_type.replace('_', ' ') }}
+                                        </span>
+                                    </td>
+                                    <td>{{ log.activity_details }}</td>
+                                    <td class="text-muted small">{{ log.ip_address }}</td>
+                                </tr>
+                                {% else %}
+                                <tr>
+                                    <td colspan="4" class="text-center py-4">No activity logs found.</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- Theory Analysis Tab -->
+                <div class="tab-pane fade p-4" id="theory" role="tabpanel">
+                    {% for q in theory_answers %}
+                    <div class="card mb-3 border {% if q.is_correct %}border-success-subtle{% else %}border-danger-subtle{% endif %}">
+                        <div class="card-body">
+                            <div class="d-flex justify-content-between align-items-start mb-2">
+                                <h6 class="fw-bold mb-0">Question {{ loop.index }}: {{ q.question_text }}</h6>
+                                <span class="badge {% if q.is_correct %}bg-success{% else %}bg-danger{% endif %}">
+                                    Score: {{ "%.2f"|format(q.score_obtained) }} / {{ q.max_score }}
+                                </span>
+                            </div>
+                            
+                            <div class="row mt-3">
+                                <div class="col-md-6">
+                                    <p class="mb-1 small text-muted">Student's Answer:</p>
+                                    <div class="p-2 rounded {% if q.is_correct %}bg-success-subtle{% else %}bg-danger-subtle{% endif %}">
+                                        {{ q.student_answer_text or '(No answer)' }}
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <p class="mb-1 small text-muted">Correct Answer:</p>
+                                    <div class="p-2 rounded bg-light border">
+                                        {{ q.correct_answer_text }}
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="mt-2 text-muted small">
+                                <i class="fas fa-clock me-1"></i> Answered at: {{ q.answered_at.strftime('%H:%M:%S') if q.answered_at else 'N/A' }}
+                            </div>
+                        </div>
+                    </div>
+                    {% else %}
+                    <div class="text-center py-4 text-muted">No theory questions answered yet.</div>
+                    {% endfor %}
+                </div>
+
+                <!-- Practical Analysis Tab -->
+                <div class="tab-pane fade p-4" id="practical" role="tabpanel">
+                    <div class="row g-4">
+                        {% for p in practical_submissions %}
+                        <div class="col-md-12">
+                            <div class="card border h-100">
+                                <div class="card-header bg-light d-flex justify-content-between align-items-center">
+                                    <h6 class="mb-0 fw-bold">Task: {{ p.question_text[:100] }}...</h6>
+                                    <span class="badge bg-primary">Score: {{ p.score_obtained if p.score_obtained is not none else 'Pending' }} / {{ p.max_score }}</span>
+                                </div>
+                                <div class="card-body">
+                                    <div class="row">
+                                        <div class="col-md-4">
+                                            <h6>Uploaded Product</h6>
+                                            {% if p.file_name %}
+                                            <div class="d-grid">
+                                                <a href="{{ url_for('files.get_submission_file', submission_id=p.id) }}" class="btn btn-outline-success">
+                                                    <i class="fas fa-download me-2"></i> {{ p.file_name }}
+                                                </a>
+                                                <small class="text-muted mt-1">Uploaded at: {{ p.submission_time.strftime('%Y-%m-%d %H:%M') }}</small>
+                                            </div>
+                                            {% else %}
+                                            <p class="text-danger">No file uploaded.</p>
+                                            {% endif %}
+                                        </div>
+                                        <div class="col-md-4">
+                                            <h6>Evaluation Details</h6>
+                                            <p class="mb-1"><strong>Invigilator:</strong> {{ p.evaluator_name or 'Not evaluated' }}</p>
+                                            <p class="mb-1"><strong>Initial Score:</strong> {{ p.initial_score if p.initial_score is not none else '-' }}</p>
+                                            <p class="mb-0"><strong>Remarks:</strong> {{ p.remarks or '-' }}</p>
+                                        </div>
+                                        <div class="col-md-4 border-start">
+                                            <h6>Revaluation Details</h6>
+                                            {% if p.revaluated_by %}
+                                            <p class="mb-1"><strong>Revaluator:</strong> {{ p.revaluator_name }}</p>
+                                            <p class="mb-1"><strong>Reval Time:</strong> {{ p.revaluation_time.strftime('%Y-%m-%d %H:%M') }}</p>
+                                            <p class="mb-0"><strong>Reval Remarks:</strong> {{ p.revaluation_remarks or '-' }}</p>
+                                            {% else %}
+                                            <p class="text-muted small">No revaluation performed.</p>
+                                            {% endif %}
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        {% else %}
+                        <div class="col-12 text-center py-4 text-muted">No practical tasks submitted yet.</div>
+                        {% endfor %}
+                    </div>
+                </div>
+
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+    @media print {
+        .btn, .nav-tabs, .back-btn { display: none !important; }
+        .card { border: 1px solid #ddd !important; box-shadow: none !important; }
+        .tab-content > .tab-pane { display: block !important; opacity: 1 !important; visibility: visible !important; }
+        .container-fluid { padding: 0 !important; }
+    }
+    .bg-success-subtle { background-color: #d1e7dd; }
+    .bg-danger-subtle { background-color: #f8d7da; }
+    .border-success-subtle { border-color: #a3cfbb !important; }
+    .border-danger-subtle { border-color: #f1aeb5 !important; }
+</style>
+{% endblock %}

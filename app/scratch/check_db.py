@@ -1,12 +1,10 @@
-import sqlite3
-import os
+from app import create_app
+from app.database.db import query_db
 
-db_path = '/home/shaji/shaji/IT_exam/app/database/database.db'
-
-# Check if it's sqlite or postgres
-# The schema.sql uses SERIAL and BYTEA which suggests Postgres, 
-# but I saw database.db in the directory.
-# Let's check the connection string in __init__.py or config.py
-
-with open('/home/shaji/shaji/IT_exam/app/config.py', 'r') as f:
-    print(f.read())
+app = create_app()
+with app.app_context():
+    exams = query_db("SELECT id, exam_name, total_theory_questions, total_practical_questions FROM examinations")
+    print(f"Exams: {exams}")
+    
+    questions = query_db("SELECT id, exam_id, question_type, language FROM questions LIMIT 5")
+    print(f"Questions: {questions}")

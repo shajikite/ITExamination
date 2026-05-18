@@ -248,9 +248,29 @@ function triggerViolation(reason) {
     tabSwitchCount++;
     if (tabSwitchCount >= MAX_TAB_SWITCHES) {
         alert(`CRITICAL VIOLATION: ${reason}. \nYou have exceeded the maximum of ${MAX_TAB_SWITCHES} violations. Your exam will now be automatically submitted.`);
+        fetch('/student/api/log-activity', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                student_exam_id: {{ student_exam_id }},
+                activity_type: 'critical_violation',
+                activity_details: reason + " (Max violations exceeded)"
+            }),
+            keepalive: true
+        });
         $('#examForm').submit();
     } else {
         alert(`WARNING: ${reason} is strictly prohibited during the theory exam. \n\nViolation ${tabSwitchCount} of ${MAX_TAB_SWITCHES}. If you reach ${MAX_TAB_SWITCHES} violations, your exam will be automatically submitted.`);
+        fetch('/student/api/log-activity', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                student_exam_id: {{ student_exam_id }},
+                activity_type: 'violation_warning',
+                activity_details: reason + " (Violation " + tabSwitchCount + ")"
+            }),
+            keepalive: true
+        });
         // Reset flag after alert is closed to prevent immediate re-triggering
         setTimeout(() => { isViolationActive = false; }, 1000);
     }

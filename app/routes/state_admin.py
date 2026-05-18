@@ -1273,6 +1273,328 @@ def revaluation_report():
                          selected_exam=exam_id)
 
 
+# ---------------------------------------------------------------------------
+# Exam Result Analysis
+# ---------------------------------------------------------------------------
+
+@state_admin_bp.route('/exam-analysis/<int:exam_id>')
+@login_required(role='state_admin')
+def exam_analysis(exam_id):
+    import json
+    from decimal import Decimal
+
+    # Helper to make Decimal JSON-serializable
+    def dec(val):
+        if val is None:
+            return 0
+        return float(val)
+
+    # ── Exam info ──────────────────────────────────────────────────────────
+    exam = query_db('''
+        SELECT e.*, c.class_name, s.subject_name
+        FROM examinations e
+        JOIN classes c ON e.class_id = c.id
+        JOIN subjects s ON e.subject_id = s.id
+        WHERE e.id = %s
+    ''', (exam_id,), one=True)
+
+    if not exam:
+        flash('Examination not found.', 'error')
+        return redirect(url_for('state_admin.create_examination'))
+
+    max_score = dec(exam['max_score']) or 1  # avoid division by zero
+
+    # ── Overview stats ─────────────────────────────────────────────────────
+    overview = query_db('''
+        SELECT
+            COUNT(se.id) as total_students,
+            SUM(CASE WHEN se.theory_status = 'completed' AND se.practical_status = 'completed' THEN 1 ELSE 0 END) as completed,
+            SUM(CASE WHEN se.theory_status = 'pending' AND se.practical_status = 'pending' THEN 1 ELSE 0 END) as not_started
+        FROM student_exams se
+        WHERE se.exam_id = %s
+    ''', (exam_id,), one=True)
+
+    mark_stats = query_db('''
+        SELECT
+            COUNT(ml.id) as graded_count,
+            AVG(ml.total_score) as avg_score,
+            AVG(ml.percentage) as avg_percentage,
+            MAX(ml.total_score) as highest_score,
+            MIN(ml.total_score) as lowest_score,
+            SUM(CASE WHEN ml.percentage >= 40 THEN 1 ELSE 0 END) as pass_count,
+            SUM(CASE WHEN ml.percentage < 40 THEN 1 ELSE 0 END) as fail_count
+        FROM mark_lists ml
+        JOIN student_exams se ON ml.student_exam_id = se.id
+        WHERE se.exam_id = %s
+    ''', (exam_id,), one=True)
+
+    # Median score
+    median_row = query_db('''
+        SELECT ml.total_score
+        FROM mark_lists ml
+        JOIN student_exams se ON ml.student_exam_id = se.id
+        WHERE se.exam_id = %s
+        ORDER BY ml.total_score
+        LIMIT 1 OFFSET (
+            SELECT COUNT(*) / 2 FROM mark_lists ml2
+            JOIN student_exams se2 ON ml2.student_exam_id = se2.id
+            WHERE se2.exam_id = %s
+        )
+    ''', (exam_id, exam_id), one=True)
+
+    stats = {
+        'total_students': overview['total_students'] or 0,
+        'completed': overview['completed'] or 0,
+        'not_started': overview['not_started'] or 0,
+        'graded': mark_stats['graded_count'] or 0,
+        'avg_score': round(dec(mark_stats['avg_score']), 2),
+        'avg_percentage': round(dec(mark_stats['avg_percentage']), 1),
+        'highest_score': dec(mark_stats['highest_score']),
+        'lowest_score': dec(mark_stats['lowest_score']),
+        'median_score': dec(median_row['total_score']) if median_row else 0,
+        'pass_count': mark_stats['pass_count'] or 0,
+        'fail_count': mark_stats['fail_count'] or 0,
+    }
+    graded = stats['graded'] or 1
+    stats['pass_rate'] = round((stats['pass_count'] / graded) * 100, 1)
+
+    # ── Grade distribution ─────────────────────────────────────────────────
+    grade_rows = query_db('''
+        SELECT ml.grade, COUNT(*) as cnt
+        FROM mark_lists ml
+        JOIN student_exams se ON ml.student_exam_id = se.id
+        WHERE se.exam_id = %s AND ml.grade IS NOT NULL
+        GROUP BY ml.grade
+        ORDER BY ml.grade
+    ''', (exam_id,))
+
+    grade_dist = {r['grade']: r['cnt'] for r in grade_rows}
+
+    # ── Score histogram (percentage buckets) ───────────────────────────────
+    bucket_rows = query_db('''
+        SELECT
+            CASE
+                WHEN ml.percentage < 10 THEN '0-10'
+                WHEN ml.percentage < 20 THEN '10-20'
+                WHEN ml.percentage < 30 THEN '20-30'
+                WHEN ml.percentage < 40 THEN '30-40'
+                WHEN ml.percentage < 50 THEN '40-50'
+                WHEN ml.percentage < 60 THEN '50-60'
+                WHEN ml.percentage < 70 THEN '60-70'
+                WHEN ml.percentage < 80 THEN '70-80'
+                WHEN ml.percentage < 90 THEN '80-90'
+                ELSE '90-100'
+            END as bucket,
+            COUNT(*) as cnt
+        FROM mark_lists ml
+        JOIN student_exams se ON ml.student_exam_id = se.id
+        WHERE se.exam_id = %s
+        GROUP BY bucket
+        ORDER BY bucket
+    ''', (exam_id,))
+
+    all_buckets = ['0-10','10-20','20-30','30-40','40-50','50-60','60-70','70-80','80-90','90-100']
+    bucket_map = {r['bucket']: r['cnt'] for r in bucket_rows}
+    score_histogram = {b: bucket_map.get(b, 0) for b in all_buckets}
+
+    # ── School-wise performance ────────────────────────────────────────────
+    school_perf = query_db('''
+        SELECT
+            s.id as school_id, s.school_name,
+            COUNT(se.id) as student_count,
+            SUM(CASE WHEN se.theory_status = 'completed' AND se.practical_status = 'completed' THEN 1 ELSE 0 END) as completed,
+            AVG(ml.total_score) as avg_score,
+            AVG(ml.percentage) as avg_percentage,
+            MAX(ml.total_score) as highest,
+            MIN(ml.total_score) as lowest,
+            SUM(CASE WHEN ml.percentage >= 40 THEN 1 ELSE 0 END) as pass_count
+        FROM student_exams se
+        JOIN schools s ON se.school_id = s.id
+        LEFT JOIN mark_lists ml ON se.id = ml.student_exam_id
+        WHERE se.exam_id = %s
+        GROUP BY s.id, s.school_name
+        ORDER BY avg_percentage DESC NULLS LAST
+    ''', (exam_id,))
+
+    school_data = []
+    for sp in school_perf:
+        graded_in_school = sp['pass_count'] or 0
+        total_in_school = sp['student_count'] or 1
+        completed_in_school = sp['completed'] or 0
+        school_data.append({
+            'school_name': sp['school_name'],
+            'student_count': sp['student_count'] or 0,
+            'completed': completed_in_school,
+            'avg_score': round(dec(sp['avg_score']), 2),
+            'avg_percentage': round(dec(sp['avg_percentage']), 1),
+            'highest': dec(sp['highest']),
+            'lowest': dec(sp['lowest']),
+            'pass_count': graded_in_school,
+            'pass_rate': round((graded_in_school / max(completed_in_school, 1)) * 100, 1),
+        })
+
+    # School-wise grade breakdown
+    school_grade_rows = query_db('''
+        SELECT s.school_name, ml.grade, COUNT(*) as cnt
+        FROM student_exams se
+        JOIN schools s ON se.school_id = s.id
+        JOIN mark_lists ml ON se.id = ml.student_exam_id
+        WHERE se.exam_id = %s AND ml.grade IS NOT NULL
+        GROUP BY s.school_name, ml.grade
+        ORDER BY s.school_name, ml.grade
+    ''', (exam_id,))
+
+    school_grade_map = {}
+    for r in school_grade_rows:
+        name = r['school_name']
+        if name not in school_grade_map:
+            school_grade_map[name] = {}
+        school_grade_map[name][r['grade']] = r['cnt']
+
+    # ── Most frequently incorrect questions ────────────────────────────────
+    incorrect_qs = query_db('''
+        SELECT
+            q.id, q.question_text,
+            COUNT(sta.id) as total_attempts,
+            SUM(CASE WHEN sta.is_correct = FALSE THEN 1 ELSE 0 END) as incorrect_count,
+            ROUND(
+                SUM(CASE WHEN sta.is_correct = FALSE THEN 1 ELSE 0 END)::numeric
+                / NULLIF(COUNT(sta.id), 0) * 100, 1
+            ) as incorrect_pct
+        FROM student_theory_answers sta
+        JOIN questions q ON sta.question_id = q.id
+        JOIN student_exams se ON sta.student_exam_id = se.id
+        WHERE se.exam_id = %s
+        GROUP BY q.id, q.question_text
+        HAVING SUM(CASE WHEN sta.is_correct = FALSE THEN 1 ELSE 0 END) > 0
+        ORDER BY incorrect_pct DESC, incorrect_count DESC
+        LIMIT 15
+    ''', (exam_id,))
+
+    incorrect_questions = [{
+        'id': q['id'],
+        'question_text': (q['question_text'] or 'Image-based Question')[:120],
+        'is_image': not bool(q['question_text']),
+        'total_attempts': q['total_attempts'],
+        'incorrect_count': q['incorrect_count'],
+        'incorrect_pct': dec(q['incorrect_pct']),
+    } for q in incorrect_qs]
+
+    # ── Most frequently correct questions ──────────────────────────────────
+    correct_qs = query_db('''
+        SELECT
+            q.id, q.question_text,
+            COUNT(sta.id) as total_attempts,
+            SUM(CASE WHEN sta.is_correct = TRUE THEN 1 ELSE 0 END) as correct_count,
+            ROUND(
+                SUM(CASE WHEN sta.is_correct = TRUE THEN 1 ELSE 0 END)::numeric
+                / NULLIF(COUNT(sta.id), 0) * 100, 1
+            ) as correct_pct
+        FROM student_theory_answers sta
+        JOIN questions q ON sta.question_id = q.id
+        JOIN student_exams se ON sta.student_exam_id = se.id
+        WHERE se.exam_id = %s
+        GROUP BY q.id, q.question_text
+        HAVING SUM(CASE WHEN sta.is_correct = TRUE THEN 1 ELSE 0 END) > 0
+        ORDER BY correct_pct DESC, correct_count DESC
+        LIMIT 15
+    ''', (exam_id,))
+
+    correct_questions = [{
+        'id': q['id'],
+        'question_text': (q['question_text'] or 'Image-based Question')[:120],
+        'is_image': not bool(q['question_text']),
+        'total_attempts': q['total_attempts'],
+        'correct_count': q['correct_count'],
+        'correct_pct': dec(q['correct_pct']),
+    } for q in correct_qs]
+
+    # ── Difficulty-wise analysis ───────────────────────────────────────────
+    difficulty_rows = query_db('''
+        SELECT
+            q.difficulty_level,
+            COUNT(sta.id) as attempts,
+            AVG(sta.score_obtained) as avg_obtained,
+            AVG(q.max_score) as avg_max
+        FROM student_theory_answers sta
+        JOIN questions q ON sta.question_id = q.id
+        JOIN student_exams se ON sta.student_exam_id = se.id
+        WHERE se.exam_id = %s AND q.difficulty_level IS NOT NULL
+        GROUP BY q.difficulty_level
+    ''', (exam_id,))
+
+    difficulty_data = [{
+        'level': r['difficulty_level'],
+        'attempts': r['attempts'],
+        'avg_obtained': round(dec(r['avg_obtained']), 2),
+        'avg_max': round(dec(r['avg_max']), 2),
+    } for r in difficulty_rows]
+
+    # ── Chapter-wise performance ───────────────────────────────────────────
+    chapter_rows = query_db('''
+        SELECT
+            ch.chapter_name,
+            COUNT(sta.id) as attempts,
+            AVG(sta.score_obtained) as avg_obtained,
+            AVG(q.max_score) as avg_max
+        FROM student_theory_answers sta
+        JOIN questions q ON sta.question_id = q.id
+        JOIN student_exams se ON sta.student_exam_id = se.id
+        LEFT JOIN chapters ch ON q.chapter_id = ch.id
+        WHERE se.exam_id = %s AND ch.id IS NOT NULL
+        GROUP BY ch.id, ch.chapter_name
+        ORDER BY ch.chapter_name
+    ''', (exam_id,))
+
+    chapter_data = [{
+        'chapter': r['chapter_name'],
+        'attempts': r['attempts'],
+        'avg_obtained': round(dec(r['avg_obtained']), 2),
+        'avg_max': round(dec(r['avg_max']), 2),
+    } for r in chapter_rows]
+
+    # ── Practical submission stats ─────────────────────────────────────────
+    practical_stats = query_db('''
+        SELECT
+            COUNT(sps.id) as total_submissions,
+            SUM(CASE WHEN sps.score_obtained IS NOT NULL THEN 1 ELSE 0 END) as evaluated,
+            AVG(sps.score_obtained) as avg_practical_score
+        FROM student_practical_submissions sps
+        JOIN student_exams se ON sps.student_exam_id = se.id
+        WHERE se.exam_id = %s
+    ''', (exam_id,), one=True)
+
+    practical = {
+        'total_submissions': practical_stats['total_submissions'] or 0,
+        'evaluated': practical_stats['evaluated'] or 0,
+        'avg_score': round(dec(practical_stats['avg_practical_score']), 2),
+    }
+
+    # ── Serialize for template ─────────────────────────────────────────────
+    all_grades = sorted(set(list(grade_dist.keys()) +
+                            [g for sg in school_grade_map.values() for g in sg.keys()]))
+
+    return render_template('state_admin/exam_analysis.html',
+                           exam=exam,
+                           stats=stats,
+                           grade_dist=grade_dist,
+                           score_histogram=score_histogram,
+                           school_data=school_data,
+                           school_grade_map=school_grade_map,
+                           all_grades=all_grades,
+                           incorrect_questions=incorrect_questions,
+                           correct_questions=correct_questions,
+                           difficulty_data=difficulty_data,
+                           chapter_data=chapter_data,
+                           practical=practical,
+                           # JSON for JS charts
+                           grade_dist_json=json.dumps(grade_dist),
+                           score_histogram_json=json.dumps(score_histogram),
+                           school_data_json=json.dumps(school_data),
+                           school_grade_json=json.dumps(school_grade_map),
+                           all_grades_json=json.dumps(all_grades),
+                           difficulty_json=json.dumps(difficulty_data),
+                           chapter_json=json.dumps(chapter_data))
 
 
 @state_admin_bp.route('/mark-list')
@@ -1286,7 +1608,7 @@ def mark_list():
         SELECT u.full_name as student_name, s.school_name, e.exam_name,
                c.class_name,
                ml.theory_score, ml.practical_score, ml.total_score,
-               ml.percentage, ml.grade
+               ml.percentage, ml.grade, se.id as student_exam_id
         FROM mark_lists ml
         JOIN student_exams se ON ml.student_exam_id = se.id
         JOIN users u ON se.student_id = u.id
@@ -1361,6 +1683,7 @@ def reset_exam_status():
         update_db('''
             UPDATE student_exams 
             SET theory_status = 'pending', practical_status = 'pending',
+                theory_phase = 1,
                 theory_start_time = NULL, theory_end_time = NULL,
                 practical_start_time = NULL, practical_end_time = NULL,
                 active_time_used = 0, last_heartbeat_time = NULL
@@ -1373,7 +1696,7 @@ def reset_exam_status():
         # 3. Delete practical submissions
         update_db('DELETE FROM student_practical_submissions WHERE student_exam_id = %s', (student_exam_id,))
         
-        # 4. Delete mark list
+        # 4. Delete marklist entries
         update_db('DELETE FROM mark_lists WHERE student_exam_id = %s', (student_exam_id,))
         
         # 5. Delete active sessions
@@ -1384,3 +1707,80 @@ def reset_exam_status():
         flash(f'Error resetting status: {str(e)}', 'error')
         
     return redirect(request.referrer or url_for('state_admin.manage_status'))
+
+@state_admin_bp.route('/student-performance/<int:student_exam_id>')
+@login_required(role='state_admin')
+def student_performance_review(student_exam_id):
+    # 1. Basic Info
+    student_exam = query_db('''
+        SELECT se.*, u.full_name, u.username, e.exam_name, e.max_score
+        FROM student_exams se
+        JOIN users u ON se.student_id = u.id
+        JOIN examinations e ON se.exam_id = e.id
+        WHERE se.id = %s
+    ''', (student_exam_id,), one=True)
+    
+    if not student_exam:
+        flash('Performance record not found.', 'danger')
+        return redirect(url_for('state_admin.dashboard'))
+    
+    # 2. Activity Logs
+    logs = query_db('''
+        SELECT * FROM activity_logs 
+        WHERE student_exam_id = %s 
+        ORDER BY created_at DESC
+    ''', (student_exam_id,))
+    
+    # 3. Theory Analysis
+    theory_answers_raw = query_db('''
+        SELECT sta.*, q.question_text, q.max_score,
+               (SELECT string_agg(option_text, ', ' ORDER BY option_order) 
+                FROM question_options 
+                WHERE id::text = ANY(string_to_array(sta.selected_options, ','))) as student_answer_text,
+               (SELECT string_agg(option_text, ', ' ORDER BY option_order) 
+                FROM question_options 
+                WHERE question_id = q.id AND is_correct = TRUE) as correct_answer_text
+        FROM student_theory_answers sta
+        JOIN questions q ON sta.question_id = q.id
+        WHERE sta.student_exam_id = %s
+        ORDER BY sta.answered_at
+    ''', (student_exam_id,))
+    
+    # 4. Practical Analysis
+    practical_submissions = query_db('''
+        SELECT sps.*, q.question_text, q.max_score,
+               eval.full_name as evaluator_name,
+               rev.full_name as revaluator_name
+        FROM student_practical_submissions sps
+        JOIN questions q ON sps.question_id = q.id
+        LEFT JOIN users eval ON sps.evaluated_by = eval.id
+        LEFT JOIN users rev ON sps.revaluated_by = rev.id
+        WHERE sps.student_exam_id = %s
+        ORDER BY sps.submission_time
+    ''', (student_exam_id,))
+    
+    # 5. Marklist details
+    ml = query_db('SELECT * FROM mark_lists WHERE student_exam_id = %s', (student_exam_id,), one=True)
+    
+    total_score = ml['total_score'] if ml else (
+        sum(float(a['score_obtained'] or 0) for a in theory_answers_raw) + 
+        sum(float(p['score_obtained'] or 0) for p in practical_submissions)
+    )
+    
+    percentage = ml['percentage'] if ml else 0
+    if not ml and student_exam['max_score'] > 0:
+        percentage = (float(total_score) / student_exam['max_score']) * 100
+    
+    grade = ml['grade'] if ml else ('A' if percentage >= 80 else 'B' if percentage >= 60 else 'C' if percentage >= 40 else 'D')
+
+    return render_template('admin/student_performance_review.html',
+                           student_exam=student_exam,
+                           student={'full_name': student_exam['full_name'], 'username': student_exam['username']},
+                           exam={'exam_name': student_exam['exam_name'], 'max_score': student_exam['max_score']},
+                           logs=logs,
+                           theory_answers=theory_answers_raw,
+                           practical_submissions=practical_submissions,
+                           total_score=total_score,
+                           percentage=percentage,
+                           grade=grade,
+                           back_url=request.referrer or url_for('state_admin.dashboard'))

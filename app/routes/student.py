@@ -1,9 +1,10 @@
 from flask import Blueprint, render_template, request, redirect, url_for, session, jsonify, flash
-from app.database.db import query_db, insert_db, update_db
+from app.database.db import query_db, insert_db, update_db, log_activity
 from app.routes.auth import login_required
 from werkzeug.utils import secure_filename
 import os
 from datetime import datetime
+import random
 
 student_bp = Blueprint('student', __name__)
 
@@ -59,6 +60,7 @@ def attend_theory(student_exam_id):
                 last_heartbeat_time = CURRENT_TIMESTAMP
             WHERE id = %s
         ''', (student_exam_id,))
+        log_activity(session['user_id'], student_exam_id, 'theory_start', 'Student started theory exam', request.remote_addr)
         theory_elapsed = 0
     else:
         # Update last_heartbeat_time to now so we don't count the offline gap
@@ -99,7 +101,6 @@ def attend_theory(student_exam_id):
         SELECT * FROM exam_chapters WHERE exam_id = %s
     ''', (exam_data['exam_id'],))
     
-    import random
     rng = random.Random(student_exam_id)
     
     max_exam_score = exam_data.get('max_score') or 0
@@ -286,6 +287,7 @@ def submit_theory():
             SET theory_status = 'completed', theory_end_time = CURRENT_TIMESTAMP
             WHERE id = %s
         ''', (student_exam_id,))
+        log_activity(session['user_id'], student_exam_id, 'theory_submit', 'Student submitted theory exam', request.remote_addr)
         
         return redirect(url_for('student.exam_complete', type='theory'))
 
@@ -325,6 +327,7 @@ def attend_practical(student_exam_id):
                 last_heartbeat_time = CURRENT_TIMESTAMP
             WHERE id = %s
         ''', (student_exam_id,))
+        log_activity(session['user_id'], student_exam_id, 'practical_start', 'Student started practical exam', request.remote_addr)
     else:
         # Update last_heartbeat_time to now so we don't count the offline gap
         update_db('''
@@ -356,24 +359,43 @@ def attend_practical(student_exam_id):
         ORDER BY id
     ''', (exam_data['exam_id'], exam_data['medium']))
     
-    import random
     rng = random.Random(student_exam_id)
+    
+    # Group questions by chapter
+    chapters_pool = {}
+    for q in questions_raw:
+        cid = q['chapter_id']
+        if cid not in chapters_pool:
+            chapters_pool[cid] = []
+        chapters_pool[cid].append(q)
+
+    # Shuffle each chapter's questions
+    for cid in chapters_pool:
+        rng.shuffle(chapters_pool[cid])
+
+    # Identify chapters that have at least 2 questions
+    available_chapters = [cid for cid, qs in chapters_pool.items() if len(qs) >= 2]
+    # Shuffle available chapters to randomize selection
+    rng.shuffle(available_chapters)
+
     total_practical_slots = exam_data.get('total_practical_questions') or 0
-    needed_questions = total_practical_slots * 2
-    
-    # Shuffle and pick questions for the slots
-    shuffled_pool = list(questions_raw)
-    rng.shuffle(shuffled_pool)
-    picked_questions = shuffled_pool[:min(needed_questions, len(shuffled_pool))]
-    
-    # Group into slots (pairs)
     practical_slots = []
-    for i in range(0, len(picked_questions), 2):
-        slot = {
-            'q1': picked_questions[i],
-            'q2': picked_questions[i+1] if i+1 < len(picked_questions) else None
-        }
-        practical_slots.append(slot)
+    chapter_cycle = list(available_chapters)
+    
+    # Fill slots using round-robin distribution across chapters
+    # to avoid repeating questions from the same chapter when others are available
+    while len(practical_slots) < total_practical_slots and chapter_cycle:
+        cid = chapter_cycle.pop(0)
+        qs = chapters_pool[cid]
+        
+        if len(qs) >= 2:
+            q1 = qs.pop(0)
+            q2 = qs.pop(0)
+            practical_slots.append({'q1': q1, 'q2': q2})
+            
+            # If chapter still has at least 2 questions left, put it back in the cycle
+            if len(qs) >= 2:
+                chapter_cycle.append(cid)
     
     # Fetch existing submissions
     submissions_raw = query_db('''
@@ -415,6 +437,8 @@ def upload_practical_work():
         VALUES (%s, %s, %s, %s, %s, %s)
     ''', (student_exam_id, question_id, option_id, filename, file_blob, file_mimetype))
     
+    log_activity(session['user_id'], student_exam_id, 'file_upload', f"Uploaded file: {filename} for question ID {question_id}", request.remote_addr)
+    
     return jsonify({'success': True, 'message': 'File uploaded successfully'})
 
 @student_bp.route('/complete-practical', methods=['POST'])
@@ -427,6 +451,8 @@ def complete_practical():
         SET practical_status = 'completed', practical_end_time = CURRENT_TIMESTAMP
         WHERE id = %s
     ''', (student_exam_id,))
+    
+    log_activity(session['user_id'], student_exam_id, 'practical_submit', 'Student completed practical exam', request.remote_addr)
     
     return redirect(url_for('student.exam_complete', type='practical'))
 
@@ -574,6 +600,10 @@ def save_answers_batch():
             continue
         
         # Calculate correctness and score
+        question = query_db('SELECT question_type, max_score FROM questions WHERE id=%s', (question_id,), one=True)
+        if not question:
+            continue
+
         correct_options = query_db('''
             SELECT id FROM question_options 
             WHERE question_id = %s AND is_correct = TRUE
@@ -614,3 +644,18 @@ def save_answers_batch():
         saved_count += 1
     
     return jsonify({'success': True, 'saved_count': saved_count})
+
+@student_bp.route('/api/log-activity', methods=['POST'])
+@login_required(role='student')
+def api_log_activity():
+    data = request.get_json()
+    if not data or 'student_exam_id' not in data or 'activity_type' not in data:
+        return jsonify({'success': False, 'message': 'Missing data'}), 400
+        
+    student_exam_id = data['student_exam_id']
+    activity_type = data['activity_type']
+    activity_details = data.get('activity_details', '')
+    
+    log_activity(session['user_id'], student_exam_id, activity_type, activity_details, request.remote_addr)
+    
+    return jsonify({'success': True})

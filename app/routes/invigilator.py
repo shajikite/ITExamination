@@ -1,6 +1,6 @@
 from flask import Blueprint, render_template, request, redirect, url_for, session, jsonify, flash
 from werkzeug.security import generate_password_hash
-from app.database.db import query_db, insert_db, update_db
+from app.database.db import query_db, insert_db, update_db, log_activity
 from app.routes.auth import login_required
 from werkzeug.utils import secure_filename
 import os
@@ -74,6 +74,8 @@ def student_login():
     session['invigilator_id'] = invigilator_id
     session['invigilator_name'] = invigilator_name
     session['invigilator_school_id'] = invigilator_school_id
+    
+    log_activity(student['id'], None, 'student_login', f"Student {student['username']} logged in by invigilator {invigilator_name}", request.remote_addr)
 
     return jsonify({
         'success': True,
@@ -87,6 +89,11 @@ def student_logout():
     invigilator_id = session.get('invigilator_id')
     invigilator_name = session.get('invigilator_name')
     invigilator_school_id = session.get('invigilator_school_id')
+    student_id = session.get('user_id')
+    student_name = session.get('full_name')
+
+    if student_id:
+        log_activity(student_id, None, 'student_logout', f"Student {student_name} session ended/restored to invigilator", request.remote_addr)
 
     if not invigilator_id:
         # No invigilator to restore — go to main login

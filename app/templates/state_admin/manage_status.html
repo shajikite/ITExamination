@@ -76,6 +76,9 @@
                                         </span>
                                     </td>
                                     <td class="text-end">
+                                        <a href="{{ url_for('state_admin.student_performance_review', student_exam_id=s.student_exam_id) }}" class="btn btn-sm btn-outline-info rounded-pill px-3 me-1">
+                                            <i class="fas fa-chart-line me-1"></i> Performance
+                                        </a>
                                         <form action="{{ url_for('state_admin.reset_exam_status') }}" method="POST" class="d-inline" onsubmit="return confirm('WARNING: This will PERMANENTLY DELETE all answers, marks, and sessions for this student. This action cannot be undone. Are you sure?')">
                                             <input type="hidden" name="student_exam_id" value="{{ s.student_exam_id }}">
                                             <button type="submit" class="btn btn-sm btn-danger rounded-pill px-3">

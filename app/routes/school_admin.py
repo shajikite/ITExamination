@@ -119,7 +119,7 @@ def prepare_marklist():
         # Calculate and create marklist entries for all completed students
         student_exams = query_db('''
             SELECT se.id as student_exam_id, se.student_id,
-                   COALESCE((SELECT SUM(score_obtained) FROM student_theory_answers WHERE student_exam_id = se.id AND is_correct = TRUE), 0) as theory_total,
+                   COALESCE((SELECT SUM(score_obtained) FROM student_theory_answers WHERE student_exam_id = se.id), 0) as theory_total,
                    COALESCE((SELECT SUM(score_obtained) FROM student_practical_submissions WHERE student_exam_id = se.id), 0) as practical_total
             FROM student_exams se
             WHERE se.exam_id = %s AND se.school_id = %s
@@ -127,44 +127,19 @@ def prepare_marklist():
         ''', (exam_id, school_id))
         
         for se in student_exams:
-            total_score = se['theory_total'] + se['practical_total']
+            total_score = float(se['theory_total'] + se['practical_total'])
             
-            # Calculate total possible marks dynamically based on assigned questions
-            exam = query_db('''
-                SELECT total_theory_questions, total_practical_questions,
-                       easy_questions, average_questions, difficult_questions
-                FROM examinations WHERE id = %s
-            ''', (exam_id,), one=True)
+            # Get examination max score
+            exam = query_db('SELECT max_score FROM examinations WHERE id = %s', (exam_id,), one=True)
+            total_possible = float(exam['max_score'] or 0)
             
-            import random
-            rng = random.Random(se['student_exam_id'])
+            if total_possible <= 0:
+                # Fallback if max_score is not set: try to calculate it from question counts
+                # This is a rough estimate and ideally max_score should always be set.
+                total_possible = total_score if total_score > 0 else 1.0
             
-            # Calculate theory max score
-            theory_raw = query_db('SELECT id, max_score, difficulty_level FROM questions WHERE exam_id=%s AND question_type=%s ORDER BY id', (exam_id, 'theory'))
-            easy_pool = [q for q in theory_raw if q['difficulty_level'] == 'easy']
-            avg_pool = [q for q in theory_raw if q['difficulty_level'] == 'average']
-            diff_pool = [q for q in theory_raw if q['difficulty_level'] == 'difficult']
-            
-            selected_theory = []
-            selected_theory.extend(rng.sample(easy_pool, min(exam['easy_questions'] or 0, len(easy_pool))))
-            selected_theory.extend(rng.sample(avg_pool, min(exam['average_questions'] or 0, len(avg_pool))))
-            selected_theory.extend(rng.sample(diff_pool, min(exam['difficult_questions'] or 0, len(diff_pool))))
-            
-            shortfall = (exam['total_theory_questions'] or 0) - len(selected_theory)
-            if shortfall > 0:
-                current_ids = {q['id'] for q in selected_theory}
-                rem_pool = [q for q in theory_raw if q['id'] not in current_ids]
-                selected_theory.extend(rng.sample(rem_pool, min(shortfall, len(rem_pool))))
-                
-            total_theory_max = sum(q['max_score'] for q in selected_theory)
-            
-            # Calculate practical max score
-            prac_raw = query_db('SELECT id, max_score FROM questions WHERE exam_id=%s AND question_type=%s ORDER BY id', (exam_id, 'practical'))
-            selected_prac = rng.sample(prac_raw, min(exam['total_practical_questions'] or 0, len(prac_raw)))
-            total_prac_max = sum(q['max_score'] for q in selected_prac)
-            
-            total_possible = total_theory_max + total_prac_max
-            percentage = (total_score / total_possible * 100) if total_possible > 0 else 0
+            percentage = (total_score / total_possible * 100)
+            percentage = min(percentage, 100.0) # Cap at 100% to prevent values like 133%
             
             # Assign grade
             grade = 'A' if percentage >= 80 else 'B' if percentage >= 60 else 'C' if percentage >= 40 else 'D'

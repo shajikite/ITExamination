@@ -60,6 +60,25 @@ def run_migrations(app):
         "UPDATE student_practical_submissions SET initial_score = score_obtained WHERE initial_score IS NULL AND score_obtained IS NOT NULL",
         "ALTER TABLE student_practical_submissions ADD COLUMN IF NOT EXISTS needs_revaluation BOOLEAN DEFAULT FALSE",
         "ALTER TABLE questions ADD COLUMN IF NOT EXISTS value_points TEXT",
+        # Change score columns to NUMERIC for partial scoring
+        "ALTER TABLE student_theory_answers ALTER COLUMN score_obtained TYPE NUMERIC(10, 2)",
+        "ALTER TABLE student_practical_submissions ALTER COLUMN score_obtained TYPE NUMERIC(10, 2)",
+        "ALTER TABLE student_practical_submissions ALTER COLUMN initial_score TYPE NUMERIC(10, 2)",
+        "ALTER TABLE mark_lists ALTER COLUMN theory_score TYPE NUMERIC(10, 2)",
+        "ALTER TABLE mark_lists ALTER COLUMN practical_score TYPE NUMERIC(10, 2)",
+        "ALTER TABLE mark_lists ALTER COLUMN total_score TYPE NUMERIC(10, 2)",
+        # Activity Logs table
+        """
+        CREATE TABLE IF NOT EXISTS activity_logs (
+            id SERIAL PRIMARY KEY,
+            student_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+            student_exam_id INTEGER REFERENCES student_exams(id) ON DELETE CASCADE,
+            activity_type VARCHAR(50),
+            activity_details TEXT,
+            ip_address VARCHAR(50),
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+        """,
     ]
 
     # Cascade FK migrations — each is a pair (drop old constraint, add new with CASCADE)
@@ -197,3 +216,9 @@ def update_db(query, args=()):
     cur.execute(query, args)
     get_db().commit()
     cur.close()
+
+def log_activity(student_id, student_exam_id, activity_type, activity_details=None, ip_address=None):
+    insert_db('''
+        INSERT INTO activity_logs (student_id, student_exam_id, activity_type, activity_details, ip_address)
+        VALUES (%s, %s, %s, %s, %s)
+    ''', (student_id, student_exam_id, activity_type, activity_details, ip_address))

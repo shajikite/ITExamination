@@ -212,6 +212,9 @@
                                 <a href="{{ url_for('state_admin.exam_questions', exam_id=exam.id) }}" class="btn btn-sm btn-outline-info" title="View / Manage Questions">
                                     <i class="fas fa-question-circle"></i> Questions
                                 </a>
+                                <a href="{{ url_for('state_admin.exam_analysis', exam_id=exam.id) }}" class="btn btn-sm btn-outline-success" title="Result Analysis">
+                                    <i class="fas fa-chart-pie"></i> Analysis
+                                </a>
                                 {% if exam.status == 'draft' %}
                                 <a href="{{ url_for('state_admin.edit_examination', exam_id=exam.id) }}" class="btn btn-sm btn-outline-primary" title="Edit Examination">
                                     <i class="fas fa-edit"></i> Edit

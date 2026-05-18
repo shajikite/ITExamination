@@ -1,0 +1,369 @@
+{% extends "base.html" %}
+
+{% block title %}Exam Analysis - {{ exam.exam_name }}{% endblock %}
+
+{% block sidebar %}
+    {% include 'state_admin/sidebar.html' %}
+{% endblock %}
+
+{% block extra_css %}
+<style>
+    .analysis-header { background: linear-gradient(135deg, #1e3a5f 0%, #2d5986 50%, #1a6b4a 100%); color: #fff; border-radius: 12px; padding: 28px 32px; margin-bottom: 28px; }
+    .analysis-header h2 { font-weight: 700; margin-bottom: 4px; }
+    .analysis-header .meta { opacity: .85; font-size: .95rem; }
+    .stat-card { border: none; border-radius: 12px; box-shadow: 0 2px 12px rgba(0,0,0,.07); transition: transform .2s, box-shadow .2s; overflow: hidden; }
+    .stat-card:hover { transform: translateY(-3px); box-shadow: 0 6px 20px rgba(0,0,0,.12); }
+    .stat-card .card-body { padding: 20px 22px; }
+    .stat-card .stat-icon { width: 48px; height: 48px; border-radius: 12px; display: flex; align-items: center; justify-content: center; font-size: 1.3rem; }
+    .stat-card .stat-value { font-size: 1.75rem; font-weight: 700; line-height: 1.2; }
+    .stat-card .stat-label { font-size: .82rem; color: #6c757d; text-transform: uppercase; letter-spacing: .5px; }
+    .chart-card { border: none; border-radius: 12px; box-shadow: 0 2px 12px rgba(0,0,0,.07); }
+    .chart-card .card-header { background: #fff; border-bottom: 1px solid #eee; font-weight: 600; font-size: 1rem; padding: 16px 20px; border-radius: 12px 12px 0 0; }
+    .chart-card .card-body { padding: 20px; }
+    .q-table th { font-size: .8rem; text-transform: uppercase; letter-spacing: .5px; color: #6c757d; }
+    .pct-bar { height: 8px; border-radius: 4px; background: #e9ecef; overflow: hidden; min-width: 80px; }
+    .pct-bar-fill { height: 100%; border-radius: 4px; transition: width .6s ease; }
+    .section-title { font-weight: 700; font-size: 1.15rem; margin: 32px 0 16px; padding-bottom: 8px; border-bottom: 2px solid #e9ecef; }
+    .section-title i { margin-right: 8px; opacity: .7; }
+    .badge-grade { font-size: .85rem; padding: 4px 10px; border-radius: 6px; font-weight: 600; }
+    @media print { .no-print, .sidebar, .navbar, .premium-navbar { display: none !important; } .col-md-10 { width: 100% !important; max-width: 100% !important; } .stat-card, .chart-card { break-inside: avoid; } canvas { max-height: 300px !important; } }
+</style>
+{% endblock %}
+
+{% block content %}
+<!-- Header -->
+<div class="analysis-header mt-3">
+    <div class="d-flex justify-content-between align-items-start flex-wrap">
+        <div>
+            <h2><i class="fas fa-chart-pie me-2"></i>{{ exam.exam_name }}</h2>
+            <div class="meta">
+                <span class="me-3"><i class="fas fa-chalkboard me-1"></i>{{ exam.class_name }}</span>
+                <span class="me-3"><i class="fas fa-book me-1"></i>{{ exam.subject_name }}</span>
+                <span class="me-3"><i class="fas fa-calendar me-1"></i>{{ exam.start_date }} — {{ exam.end_date }}</span>
+                <span class="badge bg-{{ 'success' if exam.status == 'completed' else 'warning' if exam.status == 'ongoing' else 'info' }} ms-2">{{ exam.status|upper }}</span>
+            </div>
+        </div>
+        <div class="no-print">
+            <button class="btn btn-light btn-sm me-2" onclick="window.print()"><i class="fas fa-print me-1"></i>Print</button>
+            <a href="{{ url_for('state_admin.create_examination') }}" class="btn btn-outline-light btn-sm"><i class="fas fa-arrow-left me-1"></i>Back</a>
+        </div>
+    </div>
+</div>
+
+<!-- KPI Cards -->
+<div class="row g-3 mb-4">
+    {% set cards = [
+        ('Total Students', stats.total_students, 'fas fa-users', '#4361ee', '#eef0ff'),
+        ('Completed', stats.completed, 'fas fa-check-circle', '#2ec4b6', '#e6f9f7'),
+        ('Average Score', stats.avg_score, 'fas fa-star', '#f77f00', '#fff4e6'),
+        ('Pass Rate', stats.pass_rate|string + '%', 'fas fa-trophy', '#7209b7', '#f3e8ff'),
+        ('Highest', stats.highest_score, 'fas fa-arrow-up', '#06d6a0', '#e6faf4'),
+        ('Lowest', stats.lowest_score, 'fas fa-arrow-down', '#ef476f', '#fde8ed')
+    ] %}
+    {% for label, value, icon, color, bg in cards %}
+    <div class="col-xl-2 col-md-4 col-6">
+        <div class="card stat-card h-100">
+            <div class="card-body d-flex align-items-center gap-3">
+                <div class="stat-icon" style="background:{{ bg }}; color:{{ color }};"><i class="{{ icon }}"></i></div>
+                <div>
+                    <div class="stat-value" style="color:{{ color }}">{{ value }}</div>
+                    <div class="stat-label">{{ label }}</div>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+
+<!-- Secondary Stats -->
+<div class="row g-3 mb-4">
+    <div class="col-md-3"><div class="card stat-card"><div class="card-body text-center"><div class="stat-label">Median Score</div><div class="stat-value text-primary">{{ stats.median_score }}</div></div></div></div>
+    <div class="col-md-3"><div class="card stat-card"><div class="card-body text-center"><div class="stat-label">Avg Percentage</div><div class="stat-value text-info">{{ stats.avg_percentage }}%</div></div></div></div>
+    <div class="col-md-3"><div class="card stat-card"><div class="card-body text-center"><div class="stat-label">Passed</div><div class="stat-value text-success">{{ stats.pass_count }}</div></div></div></div>
+    <div class="col-md-3"><div class="card stat-card"><div class="card-body text-center"><div class="stat-label">Failed</div><div class="stat-value text-danger">{{ stats.fail_count }}</div></div></div></div>
+</div>
+
+<!-- Charts Row 1: Grade Distribution + Score Histogram -->
+<div class="row g-4 mb-4">
+    <div class="col-lg-5">
+        <div class="card chart-card h-100">
+            <div class="card-header"><i class="fas fa-chart-pie text-primary me-2"></i>Grade Distribution</div>
+            <div class="card-body d-flex align-items-center justify-content-center" style="min-height:320px;">
+                {% if grade_dist %}
+                <canvas id="gradeChart"></canvas>
+                {% else %}
+                <p class="text-muted">No graded results available yet.</p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+    <div class="col-lg-7">
+        <div class="card chart-card h-100">
+            <div class="card-header"><i class="fas fa-chart-bar text-success me-2"></i>Score Distribution (% Buckets)</div>
+            <div class="card-body" style="min-height:320px;">
+                {% if stats.graded > 0 %}
+                <canvas id="histogramChart"></canvas>
+                {% else %}
+                <p class="text-muted text-center mt-5">No score data available yet.</p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- School-wise Performance Table -->
+<div class="section-title"><i class="fas fa-school"></i>School-wise Performance</div>
+{% if school_data %}
+<div class="card chart-card mb-4">
+    <div class="card-body p-0">
+        <div class="table-responsive">
+            <table class="table table-hover mb-0 q-table">
+                <thead class="table-light">
+                    <tr>
+                        <th>#</th><th>School</th><th class="text-center">Students</th><th class="text-center">Completed</th>
+                        <th class="text-center">Avg Score</th><th>Avg %</th><th class="text-center">Highest</th>
+                        <th class="text-center">Lowest</th><th class="text-center">Pass Rate</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for s in school_data %}
+                    <tr>
+                        <td>{{ loop.index }}</td>
+                        <td><strong>{{ s.school_name }}</strong></td>
+                        <td class="text-center">{{ s.student_count }}</td>
+                        <td class="text-center">{{ s.completed }}</td>
+                        <td class="text-center">{{ s.avg_score }}</td>
+                        <td>
+                            <div class="d-flex align-items-center gap-2">
+                                <div class="pct-bar flex-grow-1"><div class="pct-bar-fill" style="width:{{ s.avg_percentage }}%; background:{% if s.avg_percentage >= 70 %}#06d6a0{% elif s.avg_percentage >= 40 %}#f77f00{% else %}#ef476f{% endif %};"></div></div>
+                                <span class="small fw-bold">{{ s.avg_percentage }}%</span>
+                            </div>
+                        </td>
+                        <td class="text-center">{{ s.highest }}</td>
+                        <td class="text-center">{{ s.lowest }}</td>
+                        <td class="text-center"><span class="badge bg-{{ 'success' if s.pass_rate >= 70 else 'warning text-dark' if s.pass_rate >= 40 else 'danger' }}">{{ s.pass_rate }}%</span></td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- School-wise Grade Chart -->
+{% if school_grade_map %}
+<div class="card chart-card mb-4">
+    <div class="card-header"><i class="fas fa-layer-group text-info me-2"></i>School-wise Grade Comparison</div>
+    <div class="card-body" style="min-height:320px;"><canvas id="schoolGradeChart"></canvas></div>
+</div>
+{% endif %}
+{% else %}
+<div class="card chart-card mb-4"><div class="card-body text-center py-4 text-muted"><i class="fas fa-info-circle me-1"></i>No school data available for this examination.</div></div>
+{% endif %}
+
+<!-- Charts Row 2: Difficulty + Chapter -->
+<div class="row g-4 mb-4">
+    <div class="col-lg-6">
+        <div class="card chart-card h-100">
+            <div class="card-header"><i class="fas fa-signal text-warning me-2"></i>Difficulty-wise Analysis</div>
+            <div class="card-body" style="min-height:280px;">
+                {% if difficulty_data %}
+                <canvas id="difficultyChart"></canvas>
+                {% else %}
+                <p class="text-muted text-center mt-4">No difficulty data available.</p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+    <div class="col-lg-6">
+        <div class="card chart-card h-100">
+            <div class="card-header"><i class="fas fa-book-open text-primary me-2"></i>Chapter-wise Performance</div>
+            <div class="card-body" style="min-height:280px;">
+                {% if chapter_data %}
+                <canvas id="chapterChart"></canvas>
+                {% else %}
+                <p class="text-muted text-center mt-4">No chapter data available.</p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Most Frequently Incorrect Questions -->
+<div class="section-title"><i class="fas fa-times-circle text-danger"></i>Most Frequently Incorrect Questions</div>
+{% if incorrect_questions %}
+<div class="card chart-card mb-4">
+    <div class="card-body p-0">
+        <div class="table-responsive">
+            <table class="table table-hover mb-0 q-table">
+                <thead class="table-light"><tr><th>#</th><th>Question</th><th class="text-center">Total Attempts</th><th class="text-center">Incorrect</th><th>Incorrect %</th></tr></thead>
+                <tbody>
+                    {% for q in incorrect_questions %}
+                    <tr>
+                        <td>{{ loop.index }}</td>
+                        <td>
+                            {% if q.is_image %}
+                            <a href="{{ url_for('files.get_question_image', question_id=q.id) }}" target="_blank" class="text-decoration-none">
+                                <i class="fas fa-image me-1 text-primary"></i><span class="text-primary fw-semibold">Image-based Question</span>
+                                <i class="fas fa-external-link-alt ms-1 small text-muted"></i>
+                            </a>
+                            {% else %}
+                            <span title="{{ q.question_text }}">{{ q.question_text }}</span>
+                            {% endif %}
+                        </td>
+                        <td class="text-center">{{ q.total_attempts }}</td>
+                        <td class="text-center"><span class="badge bg-danger">{{ q.incorrect_count }}</span></td>
+                        <td>
+                            <div class="d-flex align-items-center gap-2">
+                                <div class="pct-bar flex-grow-1"><div class="pct-bar-fill" style="width:{{ q.incorrect_pct }}%; background:#ef476f;"></div></div>
+                                <span class="small fw-bold text-danger">{{ q.incorrect_pct }}%</span>
+                            </div>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% else %}
+<div class="card chart-card mb-4"><div class="card-body text-center py-4 text-muted">No theory answer data available yet.</div></div>
+{% endif %}
+
+<!-- Most Frequently Correct Questions -->
+<div class="section-title"><i class="fas fa-check-circle text-success"></i>Most Frequently Correct Questions</div>
+{% if correct_questions %}
+<div class="card chart-card mb-4">
+    <div class="card-body p-0">
+        <div class="table-responsive">
+            <table class="table table-hover mb-0 q-table">
+                <thead class="table-light"><tr><th>#</th><th>Question</th><th class="text-center">Total Attempts</th><th class="text-center">Correct</th><th>Correct %</th></tr></thead>
+                <tbody>
+                    {% for q in correct_questions %}
+                    <tr>
+                        <td>{{ loop.index }}</td>
+                        <td>
+                            {% if q.is_image %}
+                            <a href="{{ url_for('files.get_question_image', question_id=q.id) }}" target="_blank" class="text-decoration-none">
+                                <i class="fas fa-image me-1 text-primary"></i><span class="text-primary fw-semibold">Image-based Question</span>
+                                <i class="fas fa-external-link-alt ms-1 small text-muted"></i>
+                            </a>
+                            {% else %}
+                            <span title="{{ q.question_text }}">{{ q.question_text }}</span>
+                            {% endif %}
+                        </td>
+                        <td class="text-center">{{ q.total_attempts }}</td>
+                        <td class="text-center"><span class="badge bg-success">{{ q.correct_count }}</span></td>
+                        <td>
+                            <div class="d-flex align-items-center gap-2">
+                                <div class="pct-bar flex-grow-1"><div class="pct-bar-fill" style="width:{{ q.correct_pct }}%; background:#06d6a0;"></div></div>
+                                <span class="small fw-bold text-success">{{ q.correct_pct }}%</span>
+                            </div>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% else %}
+<div class="card chart-card mb-4"><div class="card-body text-center py-4 text-muted">No theory answer data available yet.</div></div>
+{% endif %}
+
+<!-- Practical Submissions Summary -->
+{% if practical.total_submissions > 0 %}
+<div class="section-title"><i class="fas fa-laptop-code text-info"></i>Practical Submissions Summary</div>
+<div class="row g-3 mb-4">
+    <div class="col-md-4"><div class="card stat-card"><div class="card-body text-center"><div class="stat-label">Total Submissions</div><div class="stat-value text-primary">{{ practical.total_submissions }}</div></div></div></div>
+    <div class="col-md-4"><div class="card stat-card"><div class="card-body text-center"><div class="stat-label">Evaluated</div><div class="stat-value text-success">{{ practical.evaluated }}</div></div></div></div>
+    <div class="col-md-4"><div class="card stat-card"><div class="card-body text-center"><div class="stat-label">Avg Practical Score</div><div class="stat-value text-info">{{ practical.avg_score }}</div></div></div></div>
+</div>
+{% endif %}
+
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const COLORS = ['#4361ee','#06d6a0','#f77f00','#ef476f','#7209b7','#2ec4b6','#ff006e','#3a86a7','#fb5607','#8338ec'];
+    const GRADE_COLORS = {'A':'#06d6a0','A+':'#2ec4b6','B':'#4361ee','B+':'#3a86a7','C':'#f77f00','D':'#ef476f','F':'#d90429'};
+
+    // Grade Distribution Doughnut
+    {% if grade_dist %}
+    const gd = {{ grade_dist_json|safe }};
+    new Chart(document.getElementById('gradeChart'), {
+        type: 'doughnut',
+        data: {
+            labels: Object.keys(gd),
+            datasets: [{ data: Object.values(gd), backgroundColor: Object.keys(gd).map((g,i) => GRADE_COLORS[g] || COLORS[i % COLORS.length]), borderWidth: 2, borderColor: '#fff' }]
+        },
+        options: { responsive: true, plugins: { legend: { position: 'bottom' } } }
+    });
+    {% endif %}
+
+    // Score Histogram
+    {% if stats.graded > 0 %}
+    const sh = {{ score_histogram_json|safe }};
+    new Chart(document.getElementById('histogramChart'), {
+        type: 'bar',
+        data: {
+            labels: Object.keys(sh),
+            datasets: [{ label: 'Students', data: Object.values(sh),
+                backgroundColor: Object.keys(sh).map((b,i) => { const v = parseInt(b); return v >= 80 ? '#06d6a0' : v >= 60 ? '#4361ee' : v >= 40 ? '#f77f00' : '#ef476f'; }),
+                borderRadius: 6, borderSkipped: false }]
+        },
+        options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } },
+            scales: { y: { beginAtZero: true, ticks: { stepSize: 1 } }, x: { grid: { display: false } } } }
+    });
+    {% endif %}
+
+    // School-wise Grade Comparison
+    {% if school_grade_map %}
+    const sgm = {{ school_grade_json|safe }};
+    const allG = {{ all_grades_json|safe }};
+    const schoolNames = Object.keys(sgm);
+    const sgDatasets = allG.map((g, i) => ({
+        label: g, data: schoolNames.map(s => (sgm[s] && sgm[s][g]) || 0),
+        backgroundColor: GRADE_COLORS[g] || COLORS[i % COLORS.length], borderRadius: 4
+    }));
+    new Chart(document.getElementById('schoolGradeChart'), {
+        type: 'bar',
+        data: { labels: schoolNames, datasets: sgDatasets },
+        options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'top' } },
+            scales: { x: { stacked: true, grid: { display: false } }, y: { stacked: true, beginAtZero: true, ticks: { stepSize: 1 } } } }
+    });
+    {% endif %}
+
+    // Difficulty Analysis
+    {% if difficulty_data %}
+    const dd = {{ difficulty_json|safe }};
+    const diffLabels = dd.map(d => d.level.charAt(0).toUpperCase() + d.level.slice(1));
+    new Chart(document.getElementById('difficultyChart'), {
+        type: 'bar',
+        data: { labels: diffLabels, datasets: [
+            { label: 'Avg Score Obtained', data: dd.map(d => d.avg_obtained), backgroundColor: '#4361ee', borderRadius: 6 },
+            { label: 'Avg Max Score', data: dd.map(d => d.avg_max), backgroundColor: '#e9ecef', borderRadius: 6 }
+        ]},
+        options: { responsive: true, maintainAspectRatio: false, indexAxis: 'y',
+            scales: { x: { beginAtZero: true, grid: { color: '#f0f0f0' } }, y: { grid: { display: false } } } }
+    });
+    {% endif %}
+
+    // Chapter-wise Performance
+    {% if chapter_data %}
+    const cd = {{ chapter_json|safe }};
+    new Chart(document.getElementById('chapterChart'), {
+        type: 'bar',
+        data: { labels: cd.map(c => c.chapter.length > 25 ? c.chapter.substr(0, 22) + '...' : c.chapter), datasets: [
+            { label: 'Avg Obtained', data: cd.map(c => c.avg_obtained), backgroundColor: '#2ec4b6', borderRadius: 6 },
+            { label: 'Avg Max', data: cd.map(c => c.avg_max), backgroundColor: '#e9ecef', borderRadius: 6 }
+        ]},
+        options: { responsive: true, maintainAspectRatio: false, indexAxis: 'y',
+            scales: { x: { beginAtZero: true, grid: { color: '#f0f0f0' } }, y: { grid: { display: false } } } }
+    });
+    {% endif %}
+});
+</script>
+{% endblock %}

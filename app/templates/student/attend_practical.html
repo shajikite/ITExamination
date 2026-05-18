@@ -410,6 +410,47 @@ let timerInterval;
 let heartbeatInterval;
 let totalSlots = {{ slots|length }};
 let currentSlotIndex = 0;
+let tabSwitchCount = 0;
+let MAX_TAB_SWITCHES = 3;
+let isViolationActive = false;
+
+function triggerViolation(reason) {
+    if (isViolationActive) return;
+    isViolationActive = true;
+    
+    tabSwitchCount++;
+    if (tabSwitchCount >= MAX_TAB_SWITCHES) {
+        alert(`CRITICAL VIOLATION: ${reason}. \nYou have exceeded the maximum of ${MAX_TAB_SWITCHES} violations. Your exam will now be automatically submitted.`);
+        fetch('/student/api/log-activity', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                student_exam_id: {{ student_exam_id }},
+                activity_type: 'critical_violation',
+                activity_details: reason + " (Max violations exceeded)"
+            }),
+            keepalive: true
+        });
+        $('#finishExamForm').submit();
+    } else {
+        alert(`WARNING: ${reason} is strictly prohibited during the practical exam. \n\nViolation ${tabSwitchCount} of ${MAX_TAB_SWITCHES}. If you reach ${MAX_TAB_SWITCHES} violations, your exam will be automatically submitted.`);
+        fetch('/student/api/log-activity', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                student_exam_id: {{ student_exam_id }},
+                activity_type: 'violation_warning',
+                activity_details: reason + " (Violation " + tabSwitchCount + ")"
+            }),
+            keepalive: true
+        });
+        setTimeout(() => { isViolationActive = false; }, 1000);
+    }
+}
+
+// NOTE: Focus-loss and tab-switch violations are intentionally NOT enforced
+// during practical exams, as students need to switch to external applications
+// (e.g., LibreOffice, GIMP, GeoGebra) to complete their tasks.
 
 function showSlot(index) {
     if (index < 0 || index >= totalSlots) return;

@@ -166,6 +166,9 @@
                             <a href="{{ url_for('state_admin.exam_questions', exam_id=exam.id) }}" class="btn btn-sm btn-primary">
                                 <i class="fas fa-question-circle"></i> Questions
                             </a>
+                            <a href="{{ url_for('state_admin.exam_analysis', exam_id=exam.id) }}" class="btn btn-sm btn-success">
+                                <i class="fas fa-chart-pie"></i> Analysis
+                            </a>
                         </td>
                     </tr>
                     {% endfor %}

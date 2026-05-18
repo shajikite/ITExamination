@@ -80,6 +80,7 @@
                         <th>Total Score</th>
                         <th>Percentage</th>
                         <th>Grade</th>
+                        <th>Action</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -97,6 +98,11 @@
                             <span class="badge {% if result.grade in ['A+', 'A', 'B+', 'B'] %}bg-success{% elif result.grade in ['C+', 'C'] %}bg-warning{% else %}bg-danger{% endif %}">
                                 {{ result.grade }}
                             </span>
+                        </td>
+                        <td>
+                            <a href="{{ url_for('state_admin.student_performance_review', student_exam_id=result.student_exam_id) }}" class="btn btn-sm btn-outline-info">
+                                <i class="fas fa-chart-line"></i> Performance
+                            </a>
                         </td>
                     </tr>
                     {% else %}

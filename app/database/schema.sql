@@ -147,7 +147,7 @@ CREATE TABLE student_theory_answers (
     question_id INTEGER REFERENCES questions(id) ON DELETE CASCADE,
     selected_options TEXT, -- Comma-separated option IDs
     is_correct BOOLEAN,
-    score_obtained INTEGER DEFAULT 0,
+    score_obtained NUMERIC(10, 2) DEFAULT 0,
     answered_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
@@ -161,7 +161,7 @@ CREATE TABLE student_practical_submissions (
     file_blob BYTEA,
     file_mimetype VARCHAR(50),
     evaluated_by INTEGER REFERENCES users(id),
-    score_obtained INTEGER,
+    score_obtained NUMERIC(10, 2),
     remarks TEXT,
     submission_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     evaluation_time TIMESTAMP
@@ -171,9 +171,9 @@ CREATE TABLE student_practical_submissions (
 CREATE TABLE mark_lists (
     id SERIAL PRIMARY KEY,
     student_exam_id INTEGER REFERENCES student_exams(id) ON DELETE CASCADE,
-    theory_score INTEGER DEFAULT 0,
-    practical_score INTEGER DEFAULT 0,
-    total_score INTEGER DEFAULT 0,
+    theory_score NUMERIC(10, 2) DEFAULT 0,
+    practical_score NUMERIC(10, 2) DEFAULT 0,
+    total_score NUMERIC(10, 2) DEFAULT 0,
     percentage DECIMAL(5,2),
     grade VARCHAR(5),
     prepared_by INTEGER REFERENCES users(id),
